@@ -2245,6 +2245,25 @@ class ModelTest(unittest.TestCase):
         self.assertEqual(suggested, t)
         self.assertIn('No component', msg)
 
+    def test_time(self):
+        # Tests the time() and timex() methods
+
+        # Note that set_label() is part of Variable, so not tested here
+        m = myokit.Model()
+        c = m.add_component('c')
+        x = c.add_variable('time')
+        x.set_label('time')
+        y = c.add_variable('space')
+
+        self.assertIsNone(m.time())
+        self.assertRaisesRegex(
+            myokit.IncompatibleModelError, 'No time variable', m.timex)
+
+        x.set_label(None)
+        y.set_binding('time')
+        self.assertEqual(m.time(), y)
+        self.assertEqual(m.timex(), y)
+
     def test_unique_names_1(self):
         # Test Model.create_unique_names().
 
