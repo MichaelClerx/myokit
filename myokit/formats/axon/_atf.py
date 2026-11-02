@@ -280,12 +280,12 @@ def save_atf(log, path=None, fields=None, *, filename=None):
     if filename is not None:
         if path is None:
             warnings.warn(
-                'The load_atf argument "filename" is deprecated.'
+                'The save_atf argument "filename" is deprecated.'
                 ' Please use "path" instead.')
             path = filename
         else:
             raise ValueError(
-                'The load_atf argument "filename" is a deprecated alias of'
+                'The save_atf argument "filename" is a deprecated alias of'
                 ' "path" and should not be set when "path" is set.')
 
     log.validate()

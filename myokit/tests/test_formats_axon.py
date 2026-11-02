@@ -683,7 +683,7 @@ class AtfTest(unittest.TestCase):
             for k, v in log.items():
                 self.assertTrue(np.all(v == log3[k]))
 
-            # Deprecated constructor
+            # Deprecated constructor arg
             with WarningCollector() as w:
                 atf = axon.AtfFile(filename=path)
                 self.assertEqual(atf.path(), str(path))
@@ -691,10 +691,27 @@ class AtfTest(unittest.TestCase):
             self.assertRaisesRegex(
                 ValueError, 'deprecated', axon.AtfFile, path, filename=path)
 
+            # Deprecated argument in load_atf
+            with WarningCollector() as w:
+                log4 = axon.load_atf(filename=path)
+                self.assertEqual(len(log), len(log4))
+            self.assertIn('deprecated', w.text())
+            self.assertRaisesRegex(
+                ValueError, 'deprecated', axon.load_atf, path, filename=path)
+
             # Write selected fields
             axon.save_atf(log, path, fields=['time', 'sint'])
             log2 = axon.load_atf(path)
             self.assertEqual(set(log2.keys()), {'time', 'sint'})
+
+            # Deprecated argument in save
+            with WarningCollector() as w:
+                axon.save_atf(log, filename=path, fields=['time', 'sint'])
+                self.assertEqual(len(log), len(log4))
+            self.assertIn('deprecated', w.text())
+            self.assertRaisesRegex(
+                ValueError, 'deprecated',
+                axon.save_atf, log, path, filename=path)
 
             # Time must be regularly spaced
             log['time'][-1] *= 2
