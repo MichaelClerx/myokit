@@ -53,12 +53,6 @@ class LinearModelTest(unittest.TestCase):
         for p in m.parameters():
             self.assertIn(p, parameters)
 
-        # Test deprecated MarkovModel class
-        with WarningCollector() as w:
-            m2 = markov.MarkovModel(model, states, parameters, current)
-        self.assertEqual(type(m2), markov.AnalyticalSimulation)
-        self.assertIn('deprecated', w.text())
-
         # State doesn't exist
         self.assertRaisesRegex(
             markov.LinearModelError, 'Unknown state',

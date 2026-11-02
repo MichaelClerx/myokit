@@ -45,7 +45,5 @@ removed in future Myokit releases.
 
 .. autofunction:: format_float_dict
 
-.. autofunction:: format_path
-
 .. autofunction:: strfloat
 

@@ -46,7 +46,6 @@ myokit
 - :class:`myokit.Floor`
 - :meth:`myokit.format_float_dict`
 - :meth:`myokit.format_parse_error`
-- :meth:`myokit.format_path`
 - :class:`myokit.Function`
 - :class:`myokit.GenerationError`
 - :class:`myokit.If`
