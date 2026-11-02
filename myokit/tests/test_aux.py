@@ -271,6 +271,25 @@ class AuxTest(unittest.TestCase):
         self.assertEqual(c.text(), '')
         self.assertEqual(s.getvalue(), 'Hi there\n')
 
+        # Model expected but not provided
+        x = '\n'.join([
+            'import myokit',
+            'm = get_model()',
+            'p = get_protocol()',
+        ])
+        self.assertRaisesRegex(
+            RuntimeError, 'Model not available', myokit.run, None, p, x)
+        self.assertRaisesRegex(
+            RuntimeError, 'Protocol not available', myokit.run, m, None, x)
+        x = '\n'.join(['import myokit', 'p = get_model()'])
+        self.assertRaisesRegex(
+            RuntimeError, 'Model not available', myokit.run, None, None, x)
+        x = '\n'.join(['import myokit', 'p = get_protocol()'])
+        self.assertRaisesRegex(
+            RuntimeError, 'Protocol not available', myokit.run, None, None, x)
+        x = '\n'.join(['import myokit'])
+        myokit.run(None, None, x)
+
     def test_step(self):
         # Test the step() method.
         m1 = myokit.load_model(DIR_DATA / 'beeler-1977-model.mmt')
