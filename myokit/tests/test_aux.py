@@ -6,7 +6,6 @@
 # See http://myokit.org for copyright, sharing, and licensing details.
 #
 import io
-import pathlib
 import re
 import unittest
 
