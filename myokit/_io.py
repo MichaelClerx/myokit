@@ -20,7 +20,10 @@ def _examplify(filename):
     name, this function returns the file specified by myokit.EXAMPLE. In all
     other cases, the original filename is returned.
     """
-    if filename == 'example' and not pathlib.Path(filename).is_file():
+    # Note: Converting first, then back again allows str and Path pointing to
+    # 'example' to be converted.
+    filename = pathlib.Path(filename)
+    if str(filename) == 'example' and not pathlib.Path(filename).is_file():
         return myokit.EXAMPLE
     return filename
 

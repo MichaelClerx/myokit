@@ -80,6 +80,7 @@ ignore = [
     "BLE001",   # Don't catch Exception
     "C408",     # Disallow empty list(), dict() etc.
     "E741",     # Allow ambiguous variable names
+    "F402",     # Import shadowed by loop variable
     "FLY002",   # Avoid a static str.join()
     "FURB167",  # Avoid shorthand regex flags
     "FURB122",  # Avoid write() in a loop
