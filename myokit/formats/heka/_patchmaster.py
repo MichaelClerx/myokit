@@ -121,7 +121,7 @@ class PatchMasterFile:
                     log = series.log()
 
     """
-    def __init__(self, path=None, *, filepath):
+    def __init__(self, path=None, *, filepath=None):
         warnings.warn(
             'PatchMaster file reading is new: There are no unit tests yet.')
 
@@ -138,7 +138,7 @@ class PatchMasterFile:
                     'The PatchMasterFile argument "filepath" is a deprecated '
                     ' alias of "path" and should not be set when "path" is'
                     ' set.')
-        self._path = pathlib.Path(filepath).absolute()
+        self._path = pathlib.Path(path).absolute()
 
         # File format version
         self._version = None
