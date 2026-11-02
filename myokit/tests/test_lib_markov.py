@@ -11,7 +11,7 @@ import numpy as np
 
 import myokit
 import myokit.lib.markov as markov
-from myokit.tests import DIR_DATA, WarningCollector
+from myokit.tests import DIR_DATA
 
 
 class LinearModelTest(unittest.TestCase):
@@ -207,7 +207,7 @@ class LinearModelTest(unittest.TestCase):
         # No current --> This is allowed
         m2 = model.clone()
         m2.get('ina').remove_variable(m2.get('ina.i'))
-        m = markov.LinearModel.from_component(m2.get('ina'))
+        markov.LinearModel.from_component(m2.get('ina'))
 
         # Two currents
         m2 = model.clone()
