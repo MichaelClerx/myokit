@@ -9,7 +9,6 @@ import pickle
 import unittest
 
 import myokit
-from myokit.tests import WarningCollector
 
 
 class ProtocolTest(unittest.TestCase):
@@ -281,11 +280,6 @@ class ProtocolTest(unittest.TestCase):
         # Test bad interval call
         self.assertRaises(ValueError, p.log_for_interval, 100, 0)
 
-        # Test deprecated alias
-        with WarningCollector() as w:
-            p.create_log_for_interval(0, 2000, for_drawing=True)
-        self.assertIn('deprecated', w.text())
-
     def test_log_for_times(self):
         # Test the method Protocol.log_for_times()
         # Relies on PacingSystem
@@ -307,11 +301,6 @@ class ProtocolTest(unittest.TestCase):
         d = p.log_for_times([])
         self.assertEqual(len(d.time()), 0)
         self.assertEqual(len(d['pace']), 0)
-
-        # Deprecated alias
-        with WarningCollector() as w:
-            p.create_log_for_times([])
-        self.assertIn('deprecated', w.text())
 
     def test_pickling(self):
         # Test protocol pickling

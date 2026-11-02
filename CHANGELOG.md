@@ -26,23 +26,9 @@ This page lists the main changes made to Myokit in each release.
   - [#1208](https://github.com/myokit/myokit/pull/1208) Removed the obsolete `ChannelML` support.
   - [#1214](https://github.com/myokit/myokit/pull/1214) No longer testing on Python 3.8 or 3.9.
   - [#1223](https://github.com/myokit/myokit/pull/1223) Removed deprecated alias `R` for `ohm`.
-  - [#1233](https://github.com/myokit/myokit/pull/1223) Removed deprecated module 
-  
-`myokit.lib.multi`.
-
-  - [#1233](https://github.com/myokit/myokit/pull/1223) Removed the deprecated classes
-  
-`myokit.lib.markov.MarkovModel`
-
-
-MarkovModel
-  - [#1233](https://github.com/myokit/myokit/pull/1223) Removed the deprecated methods
-  
-`myokit.format_path`,
-
-
-
-
+  - [#1233](https://github.com/myokit/myokit/pull/1223) Removed deprecated module `myokit.lib.multi`.
+  - [#1233](https://github.com/myokit/myokit/pull/1223) Removed the deprecated classes `myokit.lib.markov.MarkovModel` (alias of `LinearModel`), and `myokit.Benchmarker` (alias of `tools.Benchmarker`).
+  - [#1233](https://github.com/myokit/myokit/pull/1223) Removed the deprecated methods `myokit.format_float_dict`, `myokit.format_path`, `myokit.strfloat` (replaced by `float.str`), `myokit.DataBlock1d.from_DataLog` (alias of `from_log`), `myokit.DataBlock2d.from_DataLog` (alias of `from_log`), `myokit.DataLog.find` (alias of `find_after`), `myokit.Model.eval_state_derivatives` (alias of `evaluate_derivatives`), `myokit.OpenCLsim.calculate_conductance` (replaced by `monodomain_conductance`), `myokit.OpenCLsim.is2d` (alias of `is_2d`), `myokit.Protocol.create_log_for_interval` (alias of `log_for_interval`), and `myokit.Protocol.create_log_for_times` (alias of `log_for_times`).
 - Fixed
   - [#1203](https://github.com/myokit/myokit/pull/1203) CVODES now includes sensitivities in its error control.
   - [#1214](https://github.com/myokit/myokit/pull/1214) Myokit now specifies which version of OpenCL it is compatible with (2.0).

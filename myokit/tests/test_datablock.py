@@ -17,7 +17,6 @@ from myokit.tests import (
     DIR_IO,
     CancellingReporter,
     TestReporter,
-    WarningCollector,
 )
 
 
@@ -200,11 +199,6 @@ class DataBlock1dTest(unittest.TestCase):
         d['x', 0] = [0, 0, 0]
         d['x', 1] = [1, 1, 2]
         myokit.DataBlock1d.from_log(d)
-
-        # Deprecated alias
-        with WarningCollector() as wc:
-            myokit.DataBlock1d.from_DataLog(d)
-        self.assertIn('deprecated', wc.text())
 
         # No time key
         d = myokit.DataLog()
@@ -1102,11 +1096,6 @@ class DataBlock2dTest(unittest.TestCase):
         d['x', 0, 2] = [6, 6, 6]
         d['x', 1, 2] = [7, 7, 2]
         myokit.DataBlock2d.from_log(d)
-
-        # Deprecated alias
-        with WarningCollector() as wc:
-            myokit.DataBlock2d.from_DataLog(d)
-        self.assertIn('deprecated', wc.text())
 
         # No time key
         d.set_time_key(None)

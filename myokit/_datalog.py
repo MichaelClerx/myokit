@@ -279,18 +279,6 @@ class DataLog(collections.OrderedDict):
         # Return
         return log
 
-    def find(self, time):
-        """
-        Deprecated alias of :meth:`find_after()`.
-        """
-        # Deprecated since 2019-08-16
-        import warnings
-        warnings.warn(
-            'The method `find` is deprecated. Please use `find_after`'
-            ' instead.')
-
-        return self.find_after(time)
-
     def find_after(self, time):
         """
         Returns the lowest index ``i`` such that

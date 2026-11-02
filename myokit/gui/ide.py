@@ -952,7 +952,7 @@ class MyokitIDE(myokit.gui.MyokitApplication):
                 b = p.characteristic_time()
                 if b == 0:
                     b = 1000
-                d = p.create_log_for_interval(a, b, for_drawing=True)
+                d = p.log_for_interval(a, b, for_drawing=True)
                 plt.figure()
                 plt.plot(d['time'], d['pace'])
                 lo, hi = p.range()

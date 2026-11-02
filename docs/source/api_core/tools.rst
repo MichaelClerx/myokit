@@ -34,16 +34,3 @@ String comparison
 
 .. autofunction:: natural_sort_key
 
-Deprecated functions
-====================
-Some of the functions in ``tools`` have deprecated aliases, that will be
-removed in future Myokit releases.
-
-.. currentmodule:: myokit
-
-.. autoclass:: Benchmarker
-
-.. autofunction:: format_float_dict
-
-.. autofunction:: strfloat
-

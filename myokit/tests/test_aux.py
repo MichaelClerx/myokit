@@ -106,17 +106,6 @@ class AuxTest(unittest.TestCase):
 
         # TODO: Run with tiny model?
 
-    def test_format_float_dict(self):
-        # Test myokit.format_float_dict, which is deprecated
-        d = {'one': 1, 'Definitely two': 2, 'Three-ish': 3.1234567}
-        with WarningCollector() as c:
-            x = myokit.format_float_dict(d).splitlines()
-        self.assertIn('`myokit.format_float_dict` is deprecated', c.text())
-        self.assertEqual(len(x), 3)
-        self.assertEqual(x[0], 'Definitely two = 2')
-        self.assertEqual(x[1], 'Three-ish      = 3.1234567')
-        self.assertEqual(x[2], 'one            = 1')
-
     def test_model_comparison(self):
         # Test the model comparison class.
 
@@ -558,14 +547,6 @@ class AuxTest(unittest.TestCase):
         # No issues when passing initial state from a model
         # See https://github.com/myokit/myokit/pull/1083
         myokit.step(m1, reference=m2, state=m1.initial_values())
-
-    def test_strfloat(self):
-        # Deprecated alias of myokit.float.str
-        args = ['-1.234', True, myokit.SINGLE_PRECISION]
-        with WarningCollector() as c:
-            x = myokit.strfloat(*args)
-        self.assertIn('`myokit.strfloat` is deprecated', c.text())
-        self.assertEqual(x, myokit.float.str(*args))
 
     def test_time(self):
         # Test time formatting method.

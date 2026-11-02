@@ -251,16 +251,6 @@ class DataBlock1d:
         return cv
 
     @staticmethod
-    def from_DataLog(log):
-        """Deprecated alias of :meth:`from_log()`."""
-        # Deprecated since 2020-09-14
-        import warnings
-        warnings.warn(
-            'The method `DataBlock1d.from_DataLog` is deprecated. Please use'
-            ' `DataBlock1d.from_log` instead.')
-        return DataBlock1d.from_log(log)
-
-    @staticmethod
     def from_log(log):
         """
         Creates a DataBlock1d from a :class:`myokit.DataLog`.
@@ -1048,16 +1038,6 @@ class DataBlock2d:
         for t in range(self._nt):
             eigenvalues.append(np.linalg.eigvals(data[t]))
         return np.array(eigenvalues)
-
-    @staticmethod
-    def from_DataLog(log):
-        """Deprecated alias of :meth:`from_log()`."""
-        # Deprecated since 2020-09-14
-        import warnings
-        warnings.warn(
-            'The method `DataBlock2d.from_DataLog` is deprecated. Please use'
-            ' `DataBlock2d.from_log` instead.')
-        return DataBlock2d.from_log(log)
 
     @staticmethod
     def from_log(log):

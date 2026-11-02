@@ -122,8 +122,8 @@ class FiberTissueSimulation(myokit.CModule):
             dt=0.005, precision=myokit.SINGLE_PRECISION, native_maths=False):
         super().__init__()
 
-        # Deprecated since 2021-05-28
-        # Un-deprecated on 2022-04-20, following Adam's request
+        # Deprecated in 2021-05-28 but undeprecated on 2022-04-20, following
+        # Adam's request
         #import warnings
         #warnings.warn(
         #    'The class `myokit.FiberTissueSimulation` is deprecated, and will'

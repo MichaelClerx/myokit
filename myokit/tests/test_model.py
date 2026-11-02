@@ -508,14 +508,6 @@ class ModelTest(unittest.TestCase):
             model.evaluate_derivatives, inputs={'hello': 12},
             ignore_unbound_inputs=False)
 
-        # Deprecated name
-        with WarningCollector() as w:
-            self.assertEqual(
-                model.eval_state_derivatives(
-                    state=[1, 1, 2], inputs={'time': 0}),
-                [1, 2, 30])
-        self.assertIn('deprecated', w.text())
-
         # Ignoring errors should lead to Nans
         c.set_rhs('(b + c) / 0')
         self.assertRaises(myokit.NumericalError, model.evaluate_derivatives)

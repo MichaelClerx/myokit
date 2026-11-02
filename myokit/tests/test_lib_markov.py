@@ -178,12 +178,6 @@ class LinearModelTest(unittest.TestCase):
         # Create a markov model
         markov.LinearModel.from_component(model.get('ina'))
 
-        # Test deprecated MarkovModel class
-        with WarningCollector() as w:
-            m = markov.MarkovModel.from_component(model.get('ina'))
-        self.assertEqual(type(m), markov.AnalyticalSimulation)
-        self.assertIn('deprecated', w.text())
-
         # Test partially automatic creation
         states = [
             'ina.C3',
