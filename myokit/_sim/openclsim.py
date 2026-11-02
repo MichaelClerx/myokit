@@ -318,25 +318,6 @@ class SimulationOpenCL(myokit.CModule):
             mname, fname, args, libs, libd, incd, larg=flags,
             continue_in_debug_mode=True)
 
-    def calculate_conductance(self, r, sx, chi, dx):
-        """
-        This method is deprecated, please use :meth:`monodomain_conductance`
-        instead, but note the difference in the arguments::
-
-            calculate_conductance(r, sx, chi, dx)
-
-        is equivalent to::
-
-            monodomain_conductance(1 / chi, r, sx, dx, 1)
-
-        """
-        # Deprecated since 2021-06-25
-        import warnings
-        warnings.warn('The method SimulationOpenCL.calculate_conductance() is'
-                      ' deprecated. Please use monodomain_conductance()'
-                      ' instead.')
-        return self.monodomain_conductance(1 / chi, r, sx, dx, 1)
-
     def conductance(self):
         """
         Returns the cell-to-cell conductance(s) used in this simulation.
@@ -700,14 +681,6 @@ class SimulationOpenCL(myokit.CModule):
             return time, icell, var, value, states, bounds, log
 
         return time, icell, var, value, states, bounds
-
-    def is2d(self):
-        """Deprecated alias of :meth:`is_2d()`."""
-        # Deprecated since 2020-09-10
-        import warnings
-        warnings.warn('The method SimulationOpenCL.is2d() is deprecated.'
-                      ' Please use is_2d() instead.')
-        return self.is_2d()
 
     def is_2d(self):
         """Returns ``True`` if and only if this is a 2d simulation. """

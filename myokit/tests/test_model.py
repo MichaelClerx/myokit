@@ -508,14 +508,6 @@ class ModelTest(unittest.TestCase):
             model.evaluate_derivatives, inputs={'hello': 12},
             ignore_unbound_inputs=False)
 
-        # Deprecated name
-        with WarningCollector() as w:
-            self.assertEqual(
-                model.eval_state_derivatives(
-                    state=[1, 1, 2], inputs={'time': 0}),
-                [1, 2, 30])
-        self.assertIn('deprecated', w.text())
-
         # Ignoring errors should lead to Nans
         c.set_rhs('(b + c) / 0')
         self.assertRaises(myokit.NumericalError, model.evaluate_derivatives)
@@ -2252,6 +2244,25 @@ class ModelTest(unittest.TestCase):
         self.assertIsNone(found)
         self.assertEqual(suggested, t)
         self.assertIn('No component', msg)
+
+    def test_time(self):
+        # Tests the time() and timex() methods
+
+        # Note that set_label() is part of Variable, so not tested here
+        m = myokit.Model()
+        c = m.add_component('c')
+        x = c.add_variable('time')
+        x.set_label('time')
+        y = c.add_variable('space')
+
+        self.assertIsNone(m.time())
+        self.assertRaisesRegex(
+            myokit.IncompatibleModelError, 'No time variable', m.timex)
+
+        x.set_label(None)
+        y.set_binding('time')
+        self.assertEqual(m.time(), y)
+        self.assertEqual(m.timex(), y)
 
     def test_unique_names_1(self):
         # Test Model.create_unique_names().

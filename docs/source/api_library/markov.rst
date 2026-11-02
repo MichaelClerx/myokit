@@ -42,12 +42,3 @@ Finding Markov models
 
 .. autofunction:: find_markov_models
 
-Deprecated
-----------
-
-The following class was used in previous versions of Myokit (before 1.22.0).
-It now exists only as an interface to the newer classes.
-The MarkovModel class will be removed in future versions.
-
-.. autoclass:: MarkovModel
-

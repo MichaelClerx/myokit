@@ -11,7 +11,7 @@ import numpy as np
 
 import myokit
 import myokit.lib.markov as markov
-from myokit.tests import DIR_DATA, WarningCollector
+from myokit.tests import DIR_DATA
 
 
 class LinearModelTest(unittest.TestCase):
@@ -52,12 +52,6 @@ class LinearModelTest(unittest.TestCase):
         parameters[3] = parameters[3].qname()
         for p in m.parameters():
             self.assertIn(p, parameters)
-
-        # Test deprecated MarkovModel class
-        with WarningCollector() as w:
-            m2 = markov.MarkovModel(model, states, parameters, current)
-        self.assertEqual(type(m2), markov.AnalyticalSimulation)
-        self.assertIn('deprecated', w.text())
 
         # State doesn't exist
         self.assertRaisesRegex(
@@ -184,12 +178,6 @@ class LinearModelTest(unittest.TestCase):
         # Create a markov model
         markov.LinearModel.from_component(model.get('ina'))
 
-        # Test deprecated MarkovModel class
-        with WarningCollector() as w:
-            m = markov.MarkovModel.from_component(model.get('ina'))
-        self.assertEqual(type(m), markov.AnalyticalSimulation)
-        self.assertIn('deprecated', w.text())
-
         # Test partially automatic creation
         states = [
             'ina.C3',
@@ -219,7 +207,7 @@ class LinearModelTest(unittest.TestCase):
         # No current --> This is allowed
         m2 = model.clone()
         m2.get('ina').remove_variable(m2.get('ina.i'))
-        m = markov.LinearModel.from_component(m2.get('ina'))
+        markov.LinearModel.from_component(m2.get('ina'))
 
         # Two currents
         m2 = model.clone()

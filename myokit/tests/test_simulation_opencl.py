@@ -64,13 +64,6 @@ class SimulationOpenCLTest(unittest.TestCase):
         self.assertEqual(
             self.s0.monodomain_conductance(chi, k, D, dx, A), g * A)
 
-        # Test the deprecated calculate_conductance() method.
-        with WarningCollector() as c:
-            # Arguments: r, sx, one_over_chi, dx
-            self.assertEqual(
-                self.s0.calculate_conductance(k, D, 1 / chi, dx), g)
-        self.assertIn('deprecated', c.text())
-
     def test_conductance(self):
         # Tests setting and getting conductance.
 
@@ -1411,14 +1404,6 @@ class SimulationOpenCLTest(unittest.TestCase):
         # Test is_2d
         self.assertTrue(self.s2.is_2d())
         self.assertFalse(self.s1.is_2d())
-
-        # Deprecated alias
-        with WarningCollector() as c:
-            self.assertTrue(self.s2.is2d())
-        self.assertIn('deprecated', c.text())
-        with WarningCollector() as c:
-            self.assertFalse(self.s1.is2d())
-        self.assertIn('deprecated', c.text())
 
     def test_step_size(self):
         # Tests setting the step size (interface only)

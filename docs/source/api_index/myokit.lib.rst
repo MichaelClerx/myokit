@@ -48,16 +48,6 @@ myokit.lib.markov
 - :meth:`myokit.lib.markov.find_markov_models`
 - :class:`myokit.lib.markov.LinearModel`
 - :class:`myokit.lib.markov.LinearModelError`
-- :class:`myokit.lib.markov.MarkovModel` (Deprecated)
-
-myokit.lib.multi
-----------------
-- :meth:`myokit.lib.multi.binding`
-- :meth:`myokit.lib.multi.iterdir`
-- :meth:`myokit.lib.multi.label`
-- :meth:`myokit.lib.multi.scandir`
-- :meth:`myokit.lib.multi.time`
-- :meth:`myokit.lib.multi.unit`
 
 myokit.lib.plot
 ---------------

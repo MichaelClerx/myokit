@@ -157,28 +157,6 @@ class Protocol:
             e = e._next
         return '\n'.join(out)
 
-    def create_log_for_interval(self, a, b, for_drawing=False):
-        """
-        Deprecated alias of :meth:`log_for_interval`.
-        """
-        # Deprecated since 2019-01-09
-        import warnings
-        warnings.warn(
-            'The method `create_log_for_interval` is deprecated.'
-            ' Please use `log_for_interval` instead.')
-        return self.log_for_interval(a, b, for_drawing)
-
-    def create_log_for_times(self, times):
-        """
-        Deprecated alias of :meth:`log_for_times`.
-        """
-        # Deprecated since 2019-01-09
-        import warnings
-        warnings.warn(
-            'The method `create_log_for_times` is deprecated.'
-            ' Please use `log_for_times` instead.')
-        return self.log_for_times(times)
-
     def __eq__(self, other):
         if self is other:
             return True

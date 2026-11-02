@@ -17,18 +17,6 @@ _numpywriter_ = None
 _pywriter_ = None
 
 
-class Benchmarker(myokit.tools.Benchmarker):
-    """Deprecated alias of :class:`myokit.tools.Benchmarker`."""
-
-    def __init__(self):
-        # Deprecated since 2021-03-24
-        import warnings
-        warnings.warn(
-            'The class `myokit.Benchmarker` is deprecated.'
-            ' Please use `myokit.tools.Benchmarker` instead.')
-        super().__init__()
-
-
 def date():
     """
     Returns the current date and time, in the format used throughout Myokit.
@@ -114,36 +102,6 @@ def default_script(model=None):
         "plt.title(var)",
         "plt.show()",
     ))
-
-
-def format_float_dict(d):
-    """
-    Takes a dictionary of ``string : float`` mappings and returns a single
-    multi-line string, where each line is of the form ``key = value``, where
-    key is padded with spaces to make the equals signs align.
-
-    This method is deprecated and will be removed in future versions of Myokit.
-    """
-    # Deprecated since 2021-03-24
-    import warnings
-    warnings.warn(
-        'The method `myokit.format_float_dict` is deprecated.'
-        ' It will be removed in future versions of Myokit.')
-
-    keys = [str(k) for k in sorted(d)]
-    n = max([len(k) for k in keys])
-    return '\n'.join([
-        k + ' ' * (n - len(k)) + ' = ' + myokit.float.str(d[k]) for k in keys])
-
-
-def format_path(path, root='.'):
-    """Deprecated alias of :class:`myokit.tools.format_path`."""
-    # Deprecated since 2021-03-24
-    import warnings
-    warnings.warn(
-        'The method `myokit.format_path` is deprecated.'
-        ' Please use `myokit.tools.format_path` instead.')
-    return myokit.tools.format_path(path, root)
 
 
 class ModelComparison:
@@ -716,16 +674,6 @@ def step(model, state=None, inputs=None, reference=None, ignore_errors=False):
     # Finalize and return
     log.append('-' * line_width)
     return '\n'.join(log)
-
-
-def strfloat(number, full=False, precision=myokit.DOUBLE_PRECISION):
-    """Deprecated alias of :class:`myokit.float.str`."""
-    # Deprecated since 2021-03-24
-    import warnings
-    warnings.warn(
-        'The method `myokit.strfloat` is deprecated.'
-        ' Please use `myokit.float.str` instead.')
-    return myokit.float.str(number, full, precision)
 
 
 def time():

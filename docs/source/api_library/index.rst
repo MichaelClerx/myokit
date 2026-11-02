@@ -17,5 +17,4 @@ submodules detailed in the sections listed below.
     guess
     hh
     markov
-    multi
 

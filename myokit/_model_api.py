@@ -1426,18 +1426,6 @@ class Model(ObjectWithMetaData, VarProvider):
         # Return calculated state
         return [values[state.lhs()] for state in self._state_vars]
 
-    def eval_state_derivatives(
-            self, state=None, inputs=None, precision=myokit.DOUBLE_PRECISION,
-            ignore_errors=False):
-        """ Deprecated alias of :meth:`evaluate_derivatives()`. """
-        # Deprecated since 2021-08-03
-        import warnings
-        warnings.warn(
-            'The method `eval_state_derivatives` is deprecated. Please use'
-            ' `evaluate_derivatives()` instead.')
-        return self.evaluate_derivatives(
-            state, inputs, precision, ignore_errors)
-
     def expressions_for(self, *variables):
         """
         Determines the expressions needed to evaluate one or more variables.

@@ -1567,39 +1567,6 @@ class DiscreteSimulation:
         return list(self._state)
 
 
-class MarkovModel:
-    """
-    **Deprecated**: This class has been replaced by the classes
-    :class:`LinearModel` and :class:`AnalyticalSimulation`. Please update your
-    code to use these classes instead. This class will be removed in
-    future versions of Myokit.
-    """
-
-    @staticmethod
-    def from_component(
-            component, states=None, parameters=None, current=None, vm=None):
-        """
-        Creates and returns an :class:`AnalyticalSimulation` using a
-        :class:`LinearModel` based on a Myokit model component.
-        """
-        # Deprecated since 2016-01-25
-        import warnings
-        warnings.warn(
-            'The method `MarkovModel.from_component` is deprecated.'
-            ' Please use `LinearModel.from_component` instead.')
-        return AnalyticalSimulation(LinearModel.from_component(
-            component, states, parameters, current, vm))
-
-    def __new__(cls, model, states, parameters=None, current=None, vm=None):
-        # Deprecated since 2016-01-25
-        import warnings
-        warnings.warn(
-            'The `MarkovModel` class is deprecated.'
-            ' Please use the `LinearModel` class instead.')
-        return AnalyticalSimulation(LinearModel(
-            model, states, parameters, current, vm))
-
-
 class LinearModelError(myokit.MyokitError):
     """
     Raised for issues with constructing or using a :class:`LinearModel`.

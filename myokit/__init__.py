@@ -367,6 +367,7 @@ from . import units  # noqa
 
 # Auxillary functions
 from ._aux import (  # noqa
+    date,
     default_protocol,
     default_script,
     ModelComparison,
@@ -375,14 +376,8 @@ from ._aux import (  # noqa
     python_writer,
     run,
     step,
-    version,
-    # Deprecated and/or moved to myokit.tools
-    Benchmarker,
-    date,
-    format_float_dict,
-    format_path,
-    strfloat,
     time,
+    version,
 )
 
 # System information

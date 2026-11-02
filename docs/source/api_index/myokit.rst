@@ -8,7 +8,6 @@ myokit
 - :class:`myokit.And`
 - :class:`myokit.ASin`
 - :class:`myokit.ATan`
-- :class:`myokit.Benchmarker`
 - :class:`myokit.BinaryComparison`
 - :class:`myokit.Ceil`
 - :meth:`myokit.check_name`
@@ -44,9 +43,7 @@ myokit
 - :class:`myokit.FiberTissueSimulation`
 - :class:`myokit.FindNanError`
 - :class:`myokit.Floor`
-- :meth:`myokit.format_float_dict`
 - :meth:`myokit.format_parse_error`
-- :meth:`myokit.format_path`
 - :class:`myokit.Function`
 - :class:`myokit.GenerationError`
 - :class:`myokit.If`
@@ -150,7 +147,6 @@ myokit
 - :meth:`myokit.split_key`
 - :class:`myokit.Sqrt`
 - :meth:`myokit.step`
-- :meth:`myokit.strfloat`
 - :meth:`myokit.strip_expression_units`
 - :class:`myokit.Sundials`
 - :meth:`myokit.system`

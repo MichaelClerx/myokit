@@ -407,12 +407,17 @@ class capture:
 
 def format_path(path, root='.'):
     """
-    Formats a ``path`` for use in user messages, cutting off the given ``root``
-    if shared by the path.
+    Deprecated method: Formats a ``path`` for use in user messages, cutting off
+    the given ``root`` if shared by the path.
 
     If ``path`` is not within (or equal to) ``root``, an absolute path is
     returned.
     """
+    # Deprecated since 2026-11-02
+    import warnings
+    warnings.warn('The method `myokit.tools.format_path` is deprecated.'
+                  ' It will be removed in future versions of Myokit.')
+
     # Ensure path and root are Path objects
     if isinstance(path, str):
         path = pathlib.Path(path)
