@@ -15,6 +15,7 @@ import time
 import unittest
 
 import myokit
+from myokit.tests import WarningCollector
 
 
 class BenchmarkerTest(unittest.TestCase):
@@ -234,7 +235,12 @@ class ToolsTest(unittest.TestCase):
 
     def test_format_path(self):
         # Test format_path().
-        fp = myokit.tools.format_path
+
+        def fp(path, root='.'):
+            with WarningCollector() as c:
+                x = myokit.tools.format_path(path, root)
+            self.assertIn('deprecated', c.text())
+            return x
 
         # Platform-dependent outcome
         abc = f'a{os.sep}b{os.sep}c'

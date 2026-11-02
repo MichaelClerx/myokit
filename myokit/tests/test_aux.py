@@ -118,15 +118,6 @@ class AuxTest(unittest.TestCase):
         self.assertEqual(x[1], 'Three-ish      = 3.1234567')
         self.assertEqual(x[2], 'one            = 1')
 
-    def test_format_path(self):
-        # Deprecated alias of myokit.tools.format_path
-        r = pathlib.Path('a').absolute()
-        a = r / 'b' / 'c'
-        with WarningCollector() as c:
-            x = myokit.format_path(a, r)
-        self.assertIn('`myokit.format_path` is deprecated', c.text())
-        self.assertEqual(x, myokit.tools.format_path(a, r))
-
     def test_model_comparison(self):
         # Test the model comparison class.
 

@@ -380,7 +380,6 @@ from ._aux import (  # noqa
     Benchmarker,
     date,
     format_float_dict,
-    format_path,
     strfloat,
     time,
 )

@@ -136,16 +136,6 @@ def format_float_dict(d):
         k + ' ' * (n - len(k)) + ' = ' + myokit.float.str(d[k]) for k in keys])
 
 
-def format_path(path, root='.'):
-    """Deprecated alias of :class:`myokit.tools.format_path`."""
-    # Deprecated since 2021-03-24
-    import warnings
-    warnings.warn(
-        'The method `myokit.format_path` is deprecated.'
-        ' Please use `myokit.tools.format_path` instead.')
-    return myokit.tools.format_path(path, root)
-
-
 class ModelComparison:
     """
     Compares two models.
