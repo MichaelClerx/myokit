@@ -1552,7 +1552,7 @@ def test_examples_web(args):
     """ Runs all web examples, exits if one of them fails. """
     # Get web directory
     path = (myokit.DIR_MYOKIT / '..' / 'dev' / 'web' / 'html' / 'static' /
-            'download' / 'examples').resolve()
+            'download' / 'examples').resolve()  # Use resolve to remove ..
     if not path.is_dir():
         print('Web examples not found in')
         print(f'  {path}')
@@ -1577,8 +1577,6 @@ def test_mmt_files(path):
 
     Returns 0 iff nothing goes wrong.
     """
-    # Get absolute path
-    path = pathlib.Path(path).resolve()
 
     # Show what we're running
     print('Running mmt files for:')
