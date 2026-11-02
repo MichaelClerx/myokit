@@ -19,9 +19,9 @@ The standard exporting API is provided:
 
 .. autofunction:: exporters
 
-.. autoclass:: PdfExporter
+.. autoclass:: LatexArticleExporter
 
-.. autoclass:: PosterExporter
+.. autoclass:: LatexPosterExporter
 
 .. autofunction:: ewriters
 

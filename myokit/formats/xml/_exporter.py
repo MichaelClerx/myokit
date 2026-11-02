@@ -49,15 +49,12 @@ class XMLExporter(myokit.formats.Exporter):
         doc.write(path, encoding='utf-8', method='xml')
 
         # Pretty output
-        if True:
-            import xml.dom.minidom as m
-            xml = m.parse(path)
-            with open(path, 'wb') as f:
-                f.write(xml.toprettyxml(encoding='utf-8'))
+        import xml.dom.minidom as m
+        xml = m.parse(path)
+        with open(path, 'wb') as f:
+            f.write(xml.toprettyxml(encoding='utf-8'))
 
     def supports_model(self):
-        """
-        Returns ``True``.
-        """
+        """ Returns ``True``. """
         return True
 

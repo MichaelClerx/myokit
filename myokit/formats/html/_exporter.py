@@ -20,7 +20,19 @@ class HTMLExporter(myokit.formats.Exporter):
 
     def model(self, path, model, protocol=None):
         """
-        Export to a html document.
+        Export to a HTML document.
+
+        A :class:`myokit.ExportError` will be raised if any errors occur.
+
+        Arguments:
+
+        ``path``
+            The path to write the generated model to.
+        ``model``
+            The :class:`myokit.Model` to export.
+        ``protocol``
+            This will be ignored: protocol export is not supported.
+
         """
         # Get model name
         try:
@@ -62,14 +74,12 @@ class HTMLExporter(myokit.formats.Exporter):
         doc.write(path, encoding='utf-8', method='xml')
 
         # Pretty output
-        if True:
-            import xml.dom.minidom as m
-            xml = m.parse(path)
-            with open(path, 'wb') as f:
-                f.write(xml.toprettyxml(encoding='utf-8'))
+        import xml.dom.minidom as m
+        xml = m.parse(path)
+        with open(path, 'wb') as f:
+            f.write(xml.toprettyxml(encoding='utf-8'))
 
     def supports_model(self):
-        """
-        Returns ``True``.
-        """
+        """ Returns ``True``. """
         return True
+

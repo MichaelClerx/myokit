@@ -61,16 +61,17 @@ class Exporter:
         elif not path.is_dir():
             path.mkdir(parents=True)
 
-    def model(self, path, model):
+    def model(self, path, model, protocol=None):
         """
-        Exports a :class:`myokit.Model`.
+        Exports a :class:`myokit.Model`, optionally including information from
+        a :class:`myokit.Protocol`.
 
         The output will be stored in the **file** ``path``. A
         :class:`myokit.ExportError` will be raised if any errors occur.
         """
         raise NotImplementedError
 
-    def runnable(self, path, model, protocol=None, *args):
+    def runnable(self, path, model, protocol=None):
         """
         Exports a :class:`myokit.Model` and optionally a
         :class:`myokit.Protocol` to something that can be run or compiled.

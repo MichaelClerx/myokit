@@ -5,11 +5,11 @@
 # See http://myokit.org for copyright, sharing, and licensing details.
 #
 from ._ewriter import LatexExpressionWriter
-from ._exporter import PdfExporter, PosterExporter
+from ._exporter import LatexArticleExporter, LatexPosterExporter
 
 _exporters = {
-    'latex-article': PdfExporter,
-    'latex-poster': PosterExporter,
+    'latex-article': LatexArticleExporter,
+    'latex-poster': LatexPosterExporter,
 }
 
 

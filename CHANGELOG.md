@@ -13,6 +13,8 @@ This page lists the main changes made to Myokit in each release.
   - [#1225](https://github.com/myokit/myokit/pull/1225) The property `myokit.EXAMPLE` and the `myokit.DIR_x` properties are now `pathlib.Path` objects. The property `myokit.DIR_USER_OLD` has been removed.
   - [#1225](https://github.com/myokit/myokit/pull/1225) The command line function `myokit video` now requires `moviepy` 2 or greater.
   - [#1231](https://github.com/myokit/myokit/pull/1231) The command `myokit run` will now terminate if no script is present in the given mmt file, and will not use a default protocol is none is specified.
+  - [#1232](https://github.com/myokit/myokit/pull/1232) The `Exporter.model` interface now has an argument `protocol`, which was already used by most subclasses.
+  - [#1232](https://github.com/myokit/myokit/pull/1232) The `PdfExporter` and `PosterExporter` have been renamed to `LatexArticleExporter` and `LatexPosterExporter` respectively.
 - Deprecated
   - [#1231](https://github.com/myokit/myokit/pull/1231) The methods `AbfFile.filename()`, `AtfFile.filename()`, `PatchMasterFile.filename()`, and `WcpFile.filename()` are deprecated.
   - [#1231](https://github.com/myokit/myokit/pull/1231) The `AbfFile` constructor argument `filepath` is deprecated in favor of `path`. The `AtfFile` constructor argument `filename` is deprecated in favor of `path`.' The `PatchMasterFile` constructor argument `filepath` is deprecated in favor of `path`.

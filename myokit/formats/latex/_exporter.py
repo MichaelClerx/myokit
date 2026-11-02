@@ -9,7 +9,7 @@ import myokit
 from ._ewriter import LatexExpressionWriter
 
 
-class PdfExporter(myokit.formats.Exporter):
+class LatexArticleExporter(myokit.formats.Exporter):
     """
     This :class:`Exporter <myokit.formats.Exporter>` exports model equations to
     a simple latex document.
@@ -33,7 +33,7 @@ class PdfExporter(myokit.formats.Exporter):
 
     def model(self, path, model, protocol=None):
         """
-        Export to an xml document.
+        Exports the equations to a latex document.
 
         Arguments:
 
@@ -104,13 +104,11 @@ class PdfExporter(myokit.formats.Exporter):
             f.write('\\end{document}\n')
 
     def supports_model(self):
-        """
-        Returns ``True``
-        """
+        """ Returns ``True`` """
         return True
 
 
-class PosterExporter(myokit.formats.Exporter):
+class LatexPosterExporter(myokit.formats.Exporter):
     """
     This :class:`Exporter <myokit.formats.Exporter>` exports model equations to
     a terrifying poster format, designed to strike fear into the heart of its
@@ -179,7 +177,6 @@ class PosterExporter(myokit.formats.Exporter):
             f.write('\\end{document}\n')
 
     def supports_model(self):
-        """
-        Returns ``True``.
-        """
+        """ Returns ``True``. """
         return True
+
