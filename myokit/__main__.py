@@ -4,17 +4,38 @@
 # This file is part of Myokit.
 # See http://myokit.org for copyright, sharing, and licensing details.
 #
+import argparse
+import gc
+import importlib
+import inspect
+import os
+import pathlib
+import platform
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import traceback
+import unittest
+import warnings
+
+import myokit
+import myokit.formats
+import myokit.pype
 
 _line_width = 79
 
 
 def printline():
     """ Utility method for printing horizontal lines. """
+
     print('-' * 60)
 
 
 def colored(color, text):
     """ Utility method for printing colored text. """
+
     colors = {
         'normal': '\033[0m',
         'warning': '\033[93m',
@@ -25,12 +46,74 @@ def colored(color, text):
     return colors[color] + str(text) + colors['normal']
 
 
+def read_mmt(path):
+    """
+    Utility method to read and parse all three parts of an mmt file.
+
+    If the file cannot be parsed, a parse error is displayed and the script
+    terminates.
+
+    Arguments:
+
+    ``path``
+        The path, specified as a string. Will be passed through ``expanduser``.
+
+    """
+    path = pathlib.Path(path).expanduser()
+    try:
+        print(f'Reading mmt file {path}')
+        return myokit.load(path)
+    except myokit.ParseError as ex:
+        lines = myokit.format_parse_error(ex, path).splitlines()
+        first = True
+        for line in lines:
+            if first:
+                print(colored('fail', line))
+                first = False
+            else:
+                print(line)
+        sys.exit(1)
+
+
+def read_model(path, silent=False):
+    """
+    Utility method to read and parse the model section of an mmt file.
+
+    If the model cannot be parsed, a parse error is displayed and the script
+    terminates.
+
+    Arguments:
+
+    ``path``
+        The path, specified as a string. Will be passed through ``expanduser``.
+
+    """
+    path = pathlib.Path(path).expanduser()
+    try:
+        if silent:
+            print(f'Reading mmt file {path}')
+        return myokit.load_model(path)
+    except myokit.ParseError as ex:
+        lines = myokit.format_parse_error(ex, path).splitlines()
+        first = True
+        for line in lines:
+            if first:
+                print(colored('fail', line))
+                first = False
+            else:
+                print(line)
+        sys.exit(1)
+    except myokit.SectionNotFoundError:
+        print(colored('fail', 'Model section not found.'))
+        sys.exit(1)
+
+
 def qtforce(pyqt6=False, pyqt5=False, pyside6=False, pyside2=False):
     """ Enforce a chosen Qt version. """
 
     if pyqt6 or pyqt5 or pyside6 or pyside2:
-        import myokit
 
+        import myokit  # For style checker only...
         myokit.FORCE_PYQT6 = False
         myokit.FORCE_PYQT5 = False
         myokit.FORCE_PYSIDE6 = False
@@ -75,11 +158,7 @@ def add_qtforce_arguments(parser):
 
 
 def main():
-    """
-    Parses command line arguments.
-    """
-    import argparse
-    import sys
+    """ Parses command line arguments. """
 
     # Create parser
     parser = argparse.ArgumentParser(
@@ -133,34 +212,31 @@ def main():
 #
 # Data block viewer
 #
-def block(filename, pyqt6=False, pyqt5=False, pyside6=False, pyside2=False):
-    """
-    Runs the DataBlock viewer.
-    """
+def block(path=None, pyqt6=False, pyqt5=False, pyside6=False, pyside2=False):
+    """ Runs the DataBlock viewer. """
+
     qtforce(pyqt6, pyqt5, pyside6, pyside2)
 
-    import pathlib
-    if filename is not None:
-        filename = pathlib.Path(filename).expanduser().resolve()
+    if path is not None:
+        path = pathlib.Path(path).expanduser()
 
     import myokit.gui.datablock_viewer
-    myokit.gui.run(myokit.gui.datablock_viewer.DataBlockViewer, filename)
+    myokit.gui.run(myokit.gui.datablock_viewer.DataBlockViewer, path)
 
 
 def add_block_parser(subparsers):
-    """
-    Adds a subcommand parser for `block`.
-    """
+    """ Adds a subcommand parser for the ``block`` command. """
+
     parser = subparsers.add_parser(
         'block',
         description='Runs the DataBlock Viewer.',
         help='Runs the DataBlock Viewer.',
     )
     parser.add_argument(
-        'filename',
+        'path',
         default=None,
         nargs='?',
-        metavar='filename',
+        metavar='datablock.zip',
         help='The DataBlock zip file to open (optional).',
     )
     add_qtforce_arguments(parser)
@@ -170,25 +246,15 @@ def add_block_parser(subparsers):
 #
 # Compare
 #
+def compare(path1, path2):
+    """ Compares two models. """
 
-def compare(model1, model2):
-    """
-    Compares two models.
-    """
-    import myokit
-
-    # Load models
-    m1 = myokit.load_model(model1)
-    m2 = myokit.load_model(model2)
-
-    # Compare
-    myokit.ModelComparison(m1, m2, live=True)
+    myokit.ModelComparison(read_model(path1), read_model(path2), live=True)
 
 
 def add_compare_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``compare`` command.
-    """
+    """ Adds a subcommand parser for the ``compare`` command. """
+
     parser = subparsers.add_parser(
         'compare',
         description='Compares two models by inspecting their components,'
@@ -196,14 +262,14 @@ def add_compare_parser(subparsers):
         help='Compares two models.',
     )
     parser.add_argument(
-        'model1',
-        metavar='model1..mmt',
-        help='One of the models to compare.',
+        'path1',
+        metavar='model_file_1',
+        help='The mmt file containing the first model in the comparison.',
     )
     parser.add_argument(
-        'model2',
-        metavar='model2.mmt',
-        help='The model to compare with.',
+        'path2',
+        metavar='model_file_2',
+        help='The mmt file containing the second model.',
     )
     parser.set_defaults(func=compare)
 
@@ -211,23 +277,19 @@ def add_compare_parser(subparsers):
 #
 # Compiler
 #
-
 def compiler(debug):
-    """
-    Tests for C compilation support.
-    """
-    import myokit
+    """ Tests for C compilation support. """
+
     compiler = myokit.Compiler.info(debug)
     if compiler is None:
         print('Compilation with distutils/setuptools failed.')
     else:
-        print('Compilation successful. Found: ' + compiler)
+        print(f'Compilation successful. Found: {compiler}')
 
 
 def add_compiler_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``compiler`` command.
-    """
+    """ Adds a subcommand parser for the ``compiler`` command. """
+
     parser = subparsers.add_parser(
         'compiler',
         description='Checks for C compilation support.',
@@ -244,39 +306,32 @@ def add_compiler_parser(subparsers):
 #
 # Debug
 #
+def debug(path, variable, deps=False):
+    """ Shows how a single variable is evaluated. """
 
-def debug(source, variable, deps=False):
-    """
-    Shows how a single variable is calculated from the initial values.
-    """
-    import myokit
-
-    # Load model
-    m = myokit.load_model(source)
-
-    # Show result
+    model = read_model(path)
     if deps:
-        print(m.show_expressions_for(variable))
+        print(model.show_expressions_for(variable))
     else:
-        print(m.show_evaluation_of(variable))
+        print(model.show_evaluation_of(variable))
 
 
 def add_debug_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``debug`` command.
-    """
+    """ Adds a subcommand parser for the ``debug`` command. """
+
+    desc = ('Shows how a single variable is evaluated. The variable\'s'
+            ' defining equation and evaluation are displayed (using'
+            ' "show_evaluation_of"). If --deps is added the evaluation of its'
+            ' dependencies is shown instead (using "show_expressions_for").')
     parser = subparsers.add_parser(
         'debug',
-        description='Shows how a single variable is calculated from the '
-                    ' initial values. The variable\'s equation and value are'
-                    ' displayed, along with the value and formula of any'
-                    ' nested variables and the values of all dependencies.',
+        description=desc,
         help='Shows how a single variable is calculated.',
     )
     parser.add_argument(
-        'source',
-        metavar='source_file.mmt',
-        help='The source file to parse.',
+        'path',
+        metavar='model_file.mmt',
+        help='The file to read the model from.',
     )
     parser.add_argument(
         'variable',
@@ -294,12 +349,9 @@ def add_debug_parser(subparsers):
 #
 # Eval
 #
-
 def evaluate(expression):
-    """
-    Evaluates an expression in mmt syntax.
-    """
-    import myokit
+    """ Evaluates an expression in mmt syntax. """
+
     try:
         e = myokit.parse_expression(expression)
         e = e.eval() if e.is_literal() else e
@@ -309,9 +361,8 @@ def evaluate(expression):
 
 
 def add_eval_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``eval`` command.
-    """
+    """ Adds a subcommand parser for the ``eval`` command. """
+
     parser = subparsers.add_parser(
         'eval',
         description='Evaluates an expression in myokit syntax.',
@@ -319,8 +370,8 @@ def add_eval_parser(subparsers):
     )
     parser.add_argument(
         'expression',
-        metavar='"1 + 2 / 3"',
-        help='The expression to evaluate.',
+        metavar='expression',
+        help='The expression to evaluate (for example "1 + sin(3)").',
     )
     parser.set_defaults(func=evaluate)
 
@@ -328,36 +379,21 @@ def add_eval_parser(subparsers):
 #
 # Export
 #
-
-def mmt_export(exporter, source, target):
-    """
-    Exports a myokit model.
-    """
-    import sys
-    import warnings
-
-    import myokit
-    import myokit.formats
+def mmt_export(exporter, path, target):
+    """ Exports a myokit model. """
 
     # Get exporter
-    name = exporter
-    exporter = myokit.formats.exporter(name)
+    name = exporter  # Used again later
+    exporter = myokit.formats.exporter(exporter)
     print(str(exporter.__class__.__name__))
 
     # Parse input file
-    try:
-        print(f'Reading model from {source}')
-        model, protocol, script = myokit.load(source)
-    except myokit.ParseError as ex:
-        print(myokit.format_parse_error(ex, source))
-        sys.exit(1)
+    model, protocol, _ = read_mmt(path)
 
     # Must have model
     if model is None:
-        print('Error: Imported file must contain model definition.')
+        print(colored('fail', 'File must contain model definition.'))
         sys.exit(1)
-    else:
-        print('Model read successfully')
 
     # Export model or runnable
     with warnings.catch_warnings(record=True) as ws:
@@ -377,7 +413,7 @@ def mmt_export(exporter, source, target):
                 print('Using embedded protocol.')
             exporter.runnable(target, model, protocol)
     for w in ws:
-        print('Warning: ' + str(w.message))
+        print(colored('warning', 'Warning: ') + str(w.message))
     print('Export successful')
 
     info = exporter.post_export_info()
@@ -386,11 +422,7 @@ def mmt_export(exporter, source, target):
 
 
 def add_export_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``export`` command.
-    """
-    import myokit
-    import myokit.formats
+    """ Adds a subcommand parser for the ``export`` command. """
 
     parser = subparsers.add_parser(
         'export',
@@ -400,18 +432,18 @@ def add_export_parser(subparsers):
     parser.add_argument(
         'exporter',
         metavar='exporter',
-        help='The exporter to use.',
+        help='The exporter to use (e.g. "cellml1", or "matlab").',
         choices=myokit.formats.exporters(),
     )
     parser.add_argument(
-        'source',
-        metavar='source',
-        help='The source file to parse.',
+        'path',
+        metavar='model_file.mmt',
+        help='The file to read the model from.',
     )
     parser.add_argument(
         'target',
         metavar='target',
-        help='The output file or directory.'
+        help='The output file or directory to write to.'
     )
     parser.set_defaults(func=mmt_export)
 
@@ -419,35 +451,34 @@ def add_export_parser(subparsers):
 #
 # Icons / installation
 #
-
 def install():
-    """
-    Installs icons.
-    """
-    import platform
+    """ Installs icons. """
 
     plat = platform.system()
     if plat == 'Linux':
-        yesno = \
-            'Install launcher icons and file type associations for Gnome/KDE? '
+        yesno = ('Install launcher icons and file type associations for'
+                 ' Gnome/KDE? (y/n) ')
         yesno = input(yesno)
         yesno = (yesno.strip().lower())[:1] == 'y'
 
         if yesno:
             install_gnome_kde()
+        else:
+            print('Aborted')
 
     elif plat == 'Windows':
-        yesno = 'Install start menu shortcuts? '
+        yesno = 'Install start menu shortcuts? (y/n) '
         yesno = input(yesno)
         yesno = (yesno.strip().lower())[:1] == 'y'
 
         if yesno:
             install_windows()
+        else:
+            print('Aborted')
 
     elif plat == 'Darwin':
-        print(
-            'Icons for MacOS are not available (yet). See '
-            'https://github.com/myokit/myokit/issues/38')
+        print('Icons for MacOS are not available (yet).'
+              ' See https://github.com/myokit/myokit/issues/38')
 
     else:
         print('Unknown platform: ' + plat)
@@ -458,11 +489,6 @@ def install_gnome_kde():
     """
     Installs launchers and associates file types for gnome/kde systems.
     """
-    import pathlib
-    import shutil
-    import sys
-
-    import myokit
 
     # Get user home dir
     home = pathlib.Path.home()
@@ -525,27 +551,19 @@ def install_gnome_kde():
     # Reload mime database
     print('Reloading mime database')
     path = home / '.local' / 'share' / 'mime'
-    from subprocess import call
-    call(['update-mime-database', path])
+
+    subprocess.call(['update-mime-database', path])
 
     print('Done')
 
 
 def install_windows():
-    """
-    Install start-menu icons on windows systems.
-    """
-    import platform
+    """ Installs start-menu icons on windows systems. """
+
     if platform.system() != 'Windows':
         raise Exception('Not a windows machine.')
 
-    import pathlib
-    import tempfile
-
     import menuinst
-
-    import myokit
-    import myokit.pype
 
     # Process template to get icon directory
     with tempfile.TemporaryDirectory() as d:
@@ -564,9 +582,8 @@ def install_windows():
 
 
 def add_icon_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``icons`` command.
-    """
+    """ Adds a subcommand parser for the ``icons`` command. """
+
     parser = subparsers.add_parser(
         'icons',
         description='Installs launchers / start menu shortcuts for Myokit.',
@@ -578,35 +595,31 @@ def add_icon_parser(subparsers):
 #
 # IDE
 #
+def ide(path, pyqt6=False, pyqt5=False, pyside6=False, pyside2=False):
+    """ Runs the Myokit IDE. """
 
-def ide(filename, pyqt6=False, pyqt5=False, pyside6=False, pyside2=False):
-    """
-    Runs the Myokit IDE.
-    """
     qtforce(pyqt6, pyqt5, pyside6, pyside2)
 
-    import pathlib
-    if filename is not None:
-        filename = pathlib.Path(filename).expanduser().resolve()
+    if path is not None:
+        path = pathlib.Path(path).expanduser()
 
     import myokit.gui.ide
-    myokit.gui.run(myokit.gui.ide.MyokitIDE, filename)
+    myokit.gui.run(myokit.gui.ide.MyokitIDE, path)
 
 
 def add_ide_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``compare`` command.
-    """
+    """ Adds a subcommand parser for the ``ide`` command. """
+
     parser = subparsers.add_parser(
         'ide',
         description='Runs the Myokit IDE prototype.',
         help='Runs the Myokit IDE prototype.',
     )
     parser.add_argument(
-        'filename',
+        'path',
         default=None,
         nargs='?',
-        metavar='filename',
+        metavar='file.mmt',
         help='The mmt file to open (optional).',
     )
     add_qtforce_arguments(parser)
@@ -616,14 +629,8 @@ def add_ide_parser(subparsers):
 #
 # Import
 #
-
-def mmt_import(importer, source, target=None):
-    """
-    Imports a model and saves it in mmt format.
-    """
-    import warnings
-
-    import myokit
+def mmt_import(importer, path , target=None):
+    """ Imports a model and saves it in mmt format. """
 
     # Get importer
     importer = myokit.formats.importer(importer)
@@ -631,9 +638,9 @@ def mmt_import(importer, source, target=None):
 
     # Import
     with warnings.catch_warnings(record=True) as ws:
-        model = importer.model(source)
+        model = importer.model(pathlib.Path(path).expanduser())
     for w in ws:
-        print('Warning: ' + str(w.message))
+        print(colored('warning', 'Warning: ') + str(w.message))
 
     # Try to split off an embedded protocol
     protocol = myokit.lib.guess.remove_embedded_protocol(model)
@@ -646,9 +653,10 @@ def mmt_import(importer, source, target=None):
     script = myokit.default_script(model)
 
     # If a target is specified, save the output
-    if target:
+    if target is not None:
         # Save or output model to new location
-        print('Saving output to ' + str(target))
+        target = pathlib.Path(target).expanduser()
+        print(f'Saving output to {target}')
         myokit.save(target, model, protocol, script)
         print('Done.')
     else:
@@ -657,18 +665,14 @@ def mmt_import(importer, source, target=None):
 
 
 def add_import_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``import`` command.
-    """
-    import myokit
-    import myokit.formats
+    """ Adds a subcommand parser for the ``import`` command. """
 
     parser = subparsers.add_parser(
         'import',
         description='Imports a file using any available importer. An output'
                     ' file can be specified or the resulting mmt file can be'
                     ' printed directly to screen.',
-        help='Imports a file and generates an mmt file.',
+        help='Imports a model and generates an mmt file.',
     )
     parser.add_argument(
         'importer',
@@ -677,9 +681,9 @@ def add_import_parser(subparsers):
         choices=myokit.formats.importers(),
     )
     parser.add_argument(
-        'source',
+        'path',
         metavar='source_file',
-        help='The source file to parse.',
+        help='The source file to import from (e.g. "model.cellml").',
     )
     parser.add_argument(
         'target',
@@ -694,11 +698,11 @@ def add_import_parser(subparsers):
 #
 # Log viewer
 #
-
 def log(filenames, pyqt6=False, pyqt5=False, pyside6=False, pyside2=False):
-    """
-    Runs the DataLog Viewer.
-    """
+    """ Runs the DataLog Viewer. """
+
+    filenames = [pathlib.Path(path).expanduser() for path in filenames]
+
     qtforce(pyqt6, pyqt5, pyside6, pyside2)
 
     import myokit.gui.datalog_viewer
@@ -706,10 +710,7 @@ def log(filenames, pyqt6=False, pyqt5=False, pyside6=False, pyside2=False):
 
 
 def add_log_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``log`` command.
-    """
-    import argparse
+    """ Adds a subcommand parser for the ``log`` command. """
 
     parser = subparsers.add_parser(
         'log',
@@ -722,7 +723,7 @@ def add_log_parser(subparsers):
         default=None,
         nargs=argparse.REMAINDER,
         metavar='filename',
-        help='The DataLog zip file to open (optional).',
+        help='One or multiple DataLog zip files to open (optional).',
     )
     parser.set_defaults(func=log)
 
@@ -730,19 +731,15 @@ def add_log_parser(subparsers):
 #
 # OpenCL info
 #
-
 def opencl():
-    """
-    Queries for OpenCL support.
-    """
-    import myokit
+    """ Queries the system for OpenCL support. """
+
     print(myokit.OpenCL.info(formatted=True))
 
 
 def add_opencl_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``opencl`` command.
-    """
+    """ Adds a subcommand parser for the ``opencl`` command. """
+
     parser = subparsers.add_parser(
         'opencl',
         description='Checks for OpenCL support and prints some information'
@@ -756,14 +753,8 @@ def add_opencl_parser(subparsers):
 #
 # OpenCL select
 #
-
 def opencl_select():
-    """
-    Lets the user select the OpenCL device to use.
-    """
-    import sys
-
-    import myokit
+    """ Lets the user select the OpenCL device to use. """
 
     w = 70
     print('=' * w)
@@ -781,8 +772,8 @@ def opencl_select():
         return 'No preference' if x is None else x
 
     # Show header
-    print('Selected platform: ' + name(old_platform))
-    print('Selected device  : ' + name(old_device))
+    print(f'Selected platform: {name(old_platform)}')
+    print(f'Selected device  : {name(old_device)}')
     print('=' * w)
     print('Available devices:')
     print('-' * w)
@@ -801,9 +792,9 @@ def opencl_select():
         options.append((platform, device))
         idx += 1
         space = ' ' * (3 + len(str(idx)))
-        print('(' + str(idx) + ') Platform: ' + platform)
-        print(space + 'Device: ' + device)
-        print(space + specs)
+        print(f'({idx}) Platform: {platform}')
+        print(f'{space}Device: {device}')
+        print(f'{space}{specs}')
         print('-' * w)
 
     # Select
@@ -814,11 +805,11 @@ def opencl_select():
     if n == 2:
         q = '1 or 2'
     elif n < 6:
-        q = ','.join([str(x) for x in range(1, n)]) + ' or ' + str(n)
+        q = ','.join([str(x) for x in range(1, n)]) + f' or {n}'
     else:
-        q = 'one of 1,2,3,...,' + str(n)
+        q = f'one of 1,2,3,...,{n}'
 
-    print('Please select an OpenCL device by typing ' + q)
+    print(f'Please select an OpenCL device by typing {q}.')
     print('Leave blank to keep current selection.')
 
     try:
@@ -848,8 +839,8 @@ def opencl_select():
     else:
         platform, device = options[x - 1]
 
-    print('Selected platform: ' + name(platform))
-    print('Selected device  : ' + name(device))
+    print(f'Selected platform: {name(platform)}')
+    print(f'Selected device  : {name(device)}')
 
     if x is None:
         print('Selection unchanged.')
@@ -859,9 +850,8 @@ def opencl_select():
 
 
 def add_opencl_select_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``opencl_select`` command.
-    """
+    """ Adds a subcommand parser for the ``opencl_select`` command. """
+
     parser = subparsers.add_parser(
         'opencl-select',
         description='Lets you select which OpenCL device Myokit should use.',
@@ -873,27 +863,21 @@ def add_opencl_select_parser(subparsers):
 #
 # Reset
 #
-
 def reset(force=False):
-    """
-    Removes all Myokit settings files.
-    """
-    import sys
-
-    import myokit
+    """ Removes all Myokit settings files. """
 
     # Ask user if settings should be deleted
     if force:
         remove = True
     else:
-        yesno = 'Remove all Myokit settings files? '
+        yesno = 'Remove all Myokit settings files? (y/n) '
         yesno = input(yesno)
         yesno = yesno.strip().lower()
         remove = (yesno[:1] == 'y')
     if remove:
         print('Removing')
-        print('  ' + myokit.DIR_USER)
-        myokit.tools.rmtree(myokit.DIR_USER)
+        print(f'  {myokit.DIR_USER}')
+        shutil.rmtree(myokit.DIR_USER)
         print('Done')
     else:
         print('Aborting.')
@@ -901,9 +885,8 @@ def reset(force=False):
 
 
 def add_reset_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``reset`` command.
-    """
+    """ Adds a subcommand parser for the ``reset`` command. """
+
     parser = subparsers.add_parser(
         'reset',
         description='Removes all Myokit settings files, resetting Myokit to'
@@ -921,12 +904,8 @@ def add_reset_parser(subparsers):
 #
 # Run
 #
-
-def run(source, debug_sg, debug_wg, debug_sc, debug_sm, debug_sp, debug_ss):
+def run(path, debug_sg, debug_wg, debug_sc, debug_sm, debug_sp, debug_ss):
     """ Runs an mmt file script. """
-    import sys
-
-    import myokit
 
     # Debug modes
     # Show generated code
@@ -943,39 +922,17 @@ def run(source, debug_sg, debug_wg, debug_sc, debug_sm, debug_sp, debug_ss):
     myokit.DEBUG_SS = myokit.DEBUG_SS or debug_ss
 
     # Read mmt file
-    try:
-        print('Reading model from ' + source)
-        b = myokit.tools.Benchmarker()
-        (model, protocol, script) = myokit.load(source)
-        print('File loaded in ' + str(b.time()) + ' seconds')
-        if model is None:
-            print('No model definition found')
-        else:
-            print('Model read successfully')
-            print(model.format_warnings())
-            model.solvable_order()
-    except myokit.ParseError as ex:
-        print(myokit.format_parse_error(ex, source))
-        sys.exit(1)
-
-    # Set up pacing protocol
-    if protocol is None:
-        print('No protocol definition found')
-        print('Preparing default pacing protocol (1ms stimulus, 1bpm)')
-        protocol = myokit.pacing.blocktrain(1000, 1)
+    b = myokit.tools.Benchmarker()
+    model, protocol, script = read_mmt(path)
+    print(f'File loaded in {b.format()}.')
 
     # Set up script
     if script is None:
-        if model is None:
-            print('No script or model found, terminating')
-            sys.exit(1)
-        else:
-            print('No embedded script found, using default.')
-            script = myokit.default_script()
-    else:
-        print('Using embedded script')
+        print(colored('fail', 'No embedded script found. Aborting.'))
+        sys.exit(1)
 
-    # Normal run
+    # Allow running without model or protocol!
+
     # Show script
     printline()
     for i, line in enumerate(script.splitlines()):
@@ -984,23 +941,23 @@ def run(source, debug_sg, debug_wg, debug_sc, debug_sm, debug_sp, debug_ss):
 
     # Run!
     myokit.run(model, protocol, script)
+    print('Done')
 
 
 def add_run_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``run`` command.
-    """
+    """ Adds a subcommand parser for the ``run`` command. """
+
     parser = subparsers.add_parser(
         'run',
         description='Runs the embedded script in an mmt file. If no embedded'
                     ' script is available a simulation with a default script'
                     ' is attempted.',
-        help='Runs an mmt file.',
+        help='Runs the script embedded in an mmt file.',
     )
     parser.add_argument(
-        'source',
-        metavar='source_file.mmt',
-        help='The source file to parse.',
+        'path',
+        metavar='file.mmt',
+        help='The mmt file to run.',
     )
     parser.add_argument(
         '--debug-sg',
@@ -1038,43 +995,29 @@ def add_run_parser(subparsers):
 #
 # Step
 #
-
-def step(source, ref, ini, raw):
-    """
-    Loads a model and evaluates the state vector derivatives.
-    """
-    import sys
-
-    import myokit
-
-    # Parse reference file, if given
-    if ref and not raw:
-        print('Reading reference file...')
-        try:
-            ref = myokit.load_model(ref[0])
-            print('Reference model loaded successfully.')
-        except Exception:
-            ref = myokit.load_state(ref[0])
-            print('Reference file read successfully.')
-
-    # Parse initial value file, if given
-    if ini:
-        if not raw:
-            print('Reading initial value file...')
-        ini = myokit.load_state(ini[0])
-        if not raw:
-            print('Initial value file read successfully.')
+def step(path, ref=None, ini=None, raw=False):
+    """ Loads a model and evaluates the state vector derivatives. """
 
     # Load myokit model
-    try:
+    model = read_model(path, silent=raw)
+
+    # Parse reference file, if given - ignored if --raw was set
+    if ref is not None and not raw:
+        ref = pathlib.Path(ref).expanduser()
+        if ref.suffix.lower() == '.mmt':
+            print(f'Reading reference file {ref} as mmt model')
+            ref = read_model(ref)
+        else:
+            print(f'Reading reference file {ref} as list of derivatives')
+            ref = myokit.load_state(ref)
+
+    # Parse initial value file, if given
+    if ini is not None:
         if not raw:
-            print('Reading model from ' + source + '...')
-        model = myokit.load_model(source)
+            print('Reading initial value file...')
+        ini = myokit.load_state(ini)
         if not raw:
-            print('Model ' + source + ' read successfully.')
-    except myokit.ParseError as ex:
-        print(myokit.format_parse_error(ex, source))
-        sys.exit(1)
+            print('Initial value file read successfully.')
 
     # Ensure proper ordering of reference and initial value files
     if ref and not isinstance(ref, myokit.Model):
@@ -1090,15 +1033,15 @@ def step(source, ref, ini, raw):
     except myokit.NumericalError as ee:
         e = 'Numerical error'
         n = _line_width - len(e) - 2
-        print('-' * int(n / 2) + ' ' + e + ' ' + '-' * (n - int(n / 2)))
+        print('-' * int(n / 2) + f' {e} ' + '-' * (n - int(n / 2)))
         print('A numerical error occurred:')
         print(str(ee))
+        sys.exit(1)
 
 
 def add_step_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``step`` command.
-    """
+    """ Adds a subcommand parser for the ``step`` command. """
+
     parser = subparsers.add_parser(
         'step',
         description='Loads a model and evaluates the state vector derivatives.'
@@ -1108,22 +1051,23 @@ def add_step_parser(subparsers):
         help='Evaluates a model\'s derivatives.',
     )
     parser.add_argument(
-        'source',
-        metavar='source_file',
-        help='The source file to parse',
+        'path',
+        metavar='model_file.mmt',
+        help='The file to read the model from.',
     )
     parser.add_argument(
         '-ref',
-        nargs=1,
-        metavar='ref',
+        nargs='?',
+        metavar='reference_file',
         help='A text file with a list of numbers to compare against, or a'
-             ' reference model to compare against.',
+             ' reference model to compare against. Will be ignored if --raw'
+             ' is also set.',
         default=None,
     )
     parser.add_argument(
         '-ini',
-        nargs=1,
-        metavar='ini',
+        nargs='?',
+        metavar='initial_values',
         help='A text file with a list of initial values for the state'
              ' variables',
         default=None,
@@ -1139,17 +1083,14 @@ def add_step_parser(subparsers):
 #
 # Sundials
 #
-
 def sundials():
-    """
-    Queries for Sundials support.
-    """
-    import myokit
+    """ Queries the system for Sundials support. """
+
     version = myokit.Sundials.version()
     if version is None:
         print('Sundials not found or compilation failed.')
     else:
-        print('Found Sundials version ' + version)
+        print(f'Found Sundials version {version}')
 
 
 def add_sundials_parser(subparsers):
@@ -1167,12 +1108,9 @@ def add_sundials_parser(subparsers):
 #
 # System
 #
-
 def system():
-    """
-    Displays system information.
-    """
-    import myokit
+    """ Displays system information. """
+
     myokit.system(live_printing=True)
 
     ini = myokit.DIR_USER / 'myokit.ini'
@@ -1183,9 +1121,7 @@ def system():
 
 
 def add_system_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``system`` command.
-    """
+    """ Adds a subcommand parser for the ``system`` command. """
     parser = subparsers.add_parser(
         'system',
         description='Show system information.',
@@ -1197,11 +1133,9 @@ def add_system_parser(subparsers):
 #
 # Test
 #
-
 def add_test_parser(subparsers):
-    """
-    Adds a parser for all the tests to a subparser.
-    """
+    """ Adds a parser for all the tests to a subparser. """
+
     parser = subparsers.add_parser(
         'test',
         description='Runs tests',
@@ -1263,12 +1197,7 @@ def add_test_parser(subparsers):
 
 
 def test_coverage(args):
-    """
-    Runs the unit tests and prints a coverage report.
-    """
-    import pathlib
-    import subprocess
-    import sys
+    """ Runs the unit tests and prints a coverage report. """
 
     try:
         print('Gathering coverage data')
@@ -1318,10 +1247,8 @@ def test_documentation(args):
     Checks if the documentation can be built, runs all doc tests, exits if
     anything fails.
     """
-    print('Checking documentation coverage.')
 
-    import subprocess
-    import sys
+    print('Checking documentation coverage.')
 
     # Scan Myokit modules for classes and functions
     modules, classes, functions = test_doc_coverage_get_objects()
@@ -1369,9 +1296,6 @@ def test_doc_coverage(classes, functions):
     This method is based on one made by Fergus Cooper for PINTS.
     See https://github.com/pints-team/pints
     """
-    import pathlib
-    import re
-
     path = pathlib.Path('docs', 'source')
     doc_files = []
     for root, dirs, files in path.walk():
@@ -1421,31 +1345,31 @@ def test_doc_coverage(classes, functions):
     if undoc_classes:
         n = len(undoc_classes)
         printline()
-        print('Found (' + str(n) + ') classes without documentation:')
+        print(f'Found ({n}) classes without documentation:')
         print('\n'.join(
             '  ' + colored('warning', y) for y in sorted(undoc_classes)))
     if undoc_functions:
         n = len(undoc_functions)
         printline()
-        print('Found (' + str(n) + ') functions without documentation:')
+        print(f'Found ({n}) functions without documentation:')
         print('\n'.join(
             '  ' + colored('warning', y) for y in sorted(undoc_functions)))
     if extra_classes:
         n = len(extra_classes)
         printline()
-        print('Found (' + str(n) + ') documented but unknown classes:')
+        print(f'Found ({n}) documented but unknown classes:')
         print('\n'.join(
             '  ' + colored('warning', y) for y in sorted(extra_classes)))
     if extra_functions:
         n = len(extra_functions)
         printline()
-        print('Found (' + str(n) + ') documented but unknown classes:')
+        print(f'Found ({n}) documented but unknown classes:')
         print('\n'.join(
             '  ' + colored('warning', y) for y in sorted(extra_functions)))
     n = (len(undoc_classes) + len(undoc_functions)
          + len(extra_classes) + len(extra_functions))
     printline()
-    print('Found total of (' + str(n) + ') mismatches.')
+    print(f'Found total of ({n}) mismatches.')
 
     return n == 0
 
@@ -1456,11 +1380,6 @@ def test_doc_coverage_get_objects():
     list of functions.
     """
     print('Finding Myokit modules...')
-    import importlib
-    import inspect
-    import pathlib
-
-    import myokit
 
     def find_modules(root, modules, ignore):
         """
@@ -1565,9 +1484,6 @@ def test_doc_coverage_index(modules, classes, functions):
     Checks the documentation index to see if everything is listed and to see if
     nothing is listed that shouldn't be listed.
     """
-    import pathlib
-    import re
-
     def scan_docs(path):
         """ Scan api_index docs """
         r = re.compile('(class|meth):`([^`]*)`')
@@ -1606,40 +1522,34 @@ def test_doc_coverage_index(modules, classes, functions):
     if x:
         n += len(x)
         printline()
-        print('Found (' + str(len(x)) + ') classes not in doc index:')
+        print(f'Found ({len(x)}) classes not in doc index:')
         print('\n'.join('  ' + colored('warning', y) for y in sorted(x)))
     x = functions - doc_functions
     if x:
         n += len(x)
         printline()
-        print('Found (' + str(len(x)) + ') functions not in doc index:')
+        print(f'Found ({len(x)}) functions not in doc index:')
         print('\n'.join('  ' + colored('warning', y) for y in sorted(x)))
     x = doc_classes - classes
     if x:
         n += len(x)
         printline()
-        print('Found (' + str(len(x)) + ') indexed, unknown classes:')
+        print(f'Found ({len(x)}) indexed, unknown classes:')
         print('\n'.join('  ' + colored('warning', y) for y in sorted(x)))
     x = doc_functions - functions
     if x:
         n += len(x)
         printline()
-        print('Found (' + str(len(x)) + ') indexed, unknown functions:')
+        print(f'Found ({len(x)}) indexed, unknown functions:')
         print('\n'.join('  ' + colored('warning', y) for y in sorted(x)))
     printline()
-    print('Found total of (' + str(n) + ') mismatches.')
+    print(f'Found total of ({n}) mismatches.')
 
     return n == 0
 
 
 def test_examples_web(args):
-    """
-    Runs all web examples, exits if one of them fails.
-    """
-    import sys
-
-    import myokit
-
+    """ Runs all web examples, exits if one of them fails. """
     # Get web directory
     path = (myokit.DIR_MYOKIT / '..' / 'dev' / 'web' / 'html' / 'static' /
             'download' / 'examples').resolve()
@@ -1658,7 +1568,6 @@ def test_in_repo():
     """
     Returns ``True`` iff it thinks we're in the Myokit repo root directory.
     """
-    import pathlib
     return pathlib.Path('myokit', '__init__.py').is_file()
 
 
@@ -1668,13 +1577,6 @@ def test_mmt_files(path):
 
     Returns 0 iff nothing goes wrong.
     """
-    import gc
-    import os
-    import pathlib
-    import traceback
-
-    import myokit
-
     # Get absolute path
     path = pathlib.Path(path).resolve()
 
@@ -1722,40 +1624,19 @@ def test_mmt_files(path):
 
 
 def test_style(args):
-    """
-    Runs ruff in a subprocess, exits if it doesn't finish.
-    """
+    """ Runs ruff in a subprocess. """
+
     print('Running ruff... ')
-
-    import subprocess
-    import sys
-
     sys.stdout.flush()
     p = subprocess.Popen(
         [sys.executable, '-m', 'ruff', 'check'],
         stderr=subprocess.PIPE
     )
-    try:
-        ret = p.wait()
-    except KeyboardInterrupt:
-        try:
-            p.terminate()
-        except OSError:
-            pass
-        p.wait()
-        print()
-        sys.exit(1)
-    sys.exit(ret)
+    sys.exit(p.wait())
 
 
 def test_unit(args=None):
-    """
-    Runs unit tests, exits if anything fails.
-    """
-    import pathlib
-    import sys
-    import unittest
-    import warnings
+    """ Runs unit tests, exits if anything fails. """
 
     print(f'Running tests with {sys.executable}')
 
@@ -1766,7 +1647,6 @@ def test_unit(args=None):
     if test_in_repo():
         path = pathlib.Path('myokit', 'tests')
     else:
-        import myokit
         path = myokit.DIR_MYOKIT / 'tests'
 
     suite = unittest.defaultTestLoader.discover(path, pattern='test*.py')
@@ -1777,17 +1657,15 @@ def test_unit(args=None):
 #
 # Version
 #
-
 def version(raw=False):
     """ Show the version number. """
-    import myokit
+
     print(myokit.version(raw))
 
 
 def add_version_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``version`` command.
-    """
+    """ Adds a subcommand parser for the ``version`` command. """
+
     parser = subparsers.add_parser(
         'version',
         description='Prints Myokit\'s version number.',
@@ -1804,15 +1682,8 @@ def add_version_parser(subparsers):
 #
 # Video
 #
-
 def video(src, key, dst, fps, grow, colormap):
-    """
-    Use "moviepy" to create an animation from a DataBlock2d.
-    """
-    import pathlib
-    import sys
-
-    import myokit
+    """ Use "moviepy" to create an animation from a DataBlock2d. """
 
     # Test if moviepy is installed
     print('Loading moviepy.')
@@ -1824,8 +1695,8 @@ def video(src, key, dst, fps, grow, colormap):
     print('Done.')
 
     # Get filenames
-    src = pathlib.Path(src).expanduser().resolve()
-    dst = pathlib.Path(dst).expanduser().resolve()
+    src = pathlib.Path(src).expanduser()
+    dst = pathlib.Path(dst).expanduser()
 
     # Supported codecs
     codecs = {
@@ -1924,10 +1795,7 @@ def video(src, key, dst, fps, grow, colormap):
 
 
 def add_video_parser(subparsers):
-    """
-    Adds a subcommand parser for the ``video`` command.
-    """
-    import myokit
+    """ Adds a subcommand parser for the ``video`` command. """
 
     parser = subparsers.add_parser(
         'video',

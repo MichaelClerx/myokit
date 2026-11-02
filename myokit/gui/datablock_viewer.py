@@ -958,6 +958,7 @@ class DataBlockViewer(myokit.gui.MyokitApplication):
         for k, path in enumerate(self._recent_files):
             t = self._recent_file_tools[k]
             t.setText(f'{k + 1}. {path.name}')
+            t.setStatusTip(f'Open {path}')
             t.setData(path)
             t.setVisible(True)
         for i in range(len(self._recent_files), N_RECENT_FILES):

@@ -525,9 +525,13 @@ def run(model, protocol, script, stdout=None, stderr=None, progress=None):
 
             # Create magic functions
             def get_model():
+                if self.model is None:
+                    raise RuntimeError('Model not available.')
                 return self.model
 
             def get_protocol():
+                if self.protocol is None:
+                    raise RuntimeError('Protocol not available.')
                 return self.protocol
 
             # Re-route standard outputs, execute code
