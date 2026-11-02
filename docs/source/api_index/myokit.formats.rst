@@ -161,9 +161,9 @@ myokit.formats.latex
 ---------------------
 - :meth:`myokit.formats.latex.exporters`
 - :meth:`myokit.formats.latex.ewriters`
+- :class:`myokit.formats.latex.LatexArticleExporter`
 - :class:`myokit.formats.latex.LatexExpressionWriter`
-- :class:`myokit.formats.latex.PosterExporter`
-- :class:`myokit.formats.latex.PdfExporter`
+- :class:`myokit.formats.latex.LatexPosterExporter`
 
 myokit.formats.mathml
 ---------------------

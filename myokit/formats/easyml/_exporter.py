@@ -37,7 +37,7 @@ class EasyMLExporter(myokit.formats.Exporter):
         ``model``
             The :class:`myokit.Model` to export.
         ``protocol``
-            A protocol - this will be ignored!
+            This will be ignored: protocol export is not supported.
         ``convert_units``
             If set to ``True``, the metohd will attempt to convert to CARP's
             preferred units for voltage (mV), current (A/F), and time (ms).

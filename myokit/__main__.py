@@ -383,7 +383,6 @@ def mmt_export(exporter, path, target):
     """ Exports a myokit model. """
 
     # Get exporter
-    name = exporter  # Used again later
     exporter = myokit.formats.exporter(exporter)
     print(str(exporter.__class__.__name__))
 
@@ -400,10 +399,7 @@ def mmt_export(exporter, path, target):
         if exporter.supports_model():
             # Export model
             print('Exporting model')
-            if name == 'cellml':
-                exporter.model(target, model, protocol)
-            else:
-                exporter.model(target, model)
+            exporter.model(target, model, protocol)
         else:
             # Export runnable
             print('Exporting runnable')
