@@ -10,20 +10,13 @@ import re
 import unittest
 
 import myokit
-from myokit.tests import DIR_DATA, WarningCollector
+from myokit.tests import DIR_DATA
 
 
 class AuxTest(unittest.TestCase):
     """
     Test various methods from myokit._aux.
     """
-
-    def test_benchmarker(self):
-        # Deprecated alias of myokit.tools.Benchmarker
-        with WarningCollector() as c:
-            b = myokit.Benchmarker()
-        self.assertIn('`myokit.Benchmarker` is deprecated', c.text())
-        self.assertIsInstance(b, myokit.tools.Benchmarker)
 
     def test_date(self):
         # Test date formatting method.
