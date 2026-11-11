@@ -18,6 +18,8 @@ class UserFunctionTest(unittest.TestCase):
     def test_user_function(self):
         # Test :class:`UserFunction` creation and methods.
 
+        # Note: deprecation warning is implemented in `Model.add_function`
+
         # Create without arguments
         f = myokit.UserFunction('bert', [], myokit.Number(12))
         args = list(f.arguments())
