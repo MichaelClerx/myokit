@@ -7,6 +7,7 @@
 #
 import collections
 import platform
+import warnings
 
 import numpy as np
 
@@ -160,7 +161,7 @@ class SimulationOpenCL(myokit.CModule):
             raise ValueError(
                 'This simulation requires models without interdependent'
                 ' components. Please restructure the model and re-run.'
-                '\nCycles:\n' + cycles)
+                f'\nCycles:\n{cycles}.')
 
         # Set protocol
         self.set_protocol(protocol)
@@ -288,8 +289,8 @@ class SimulationOpenCL(myokit.CModule):
 
         # Create back-end
         SimulationOpenCL._index += 1
-        mname = 'myokit_sim_opencl_' + str(SimulationOpenCL._index)
-        mname += '_' + str(myokit.pid_hash())
+        mname = (f'myokit_sim_opencl_{SimulationOpenCL._index}'
+                 f'_{myokit.pid_hash()}')
         fname = myokit.DIR_CFUNC / SOURCE_FILE
         args = {
             'module_name': mname,
@@ -444,7 +445,7 @@ class SimulationOpenCL(myokit.CModule):
             if key not in log:
                 raise myokit.FindNanError(
                     'Method requires a simulation log containing all states'
-                    ' and bound variables. Missing variable <' + key + '>.')
+                    f' and bound variables. Missing variable <{key}>.')
         del t
 
         # Error criterium
@@ -490,8 +491,7 @@ class SimulationOpenCL(myokit.CModule):
             try:
                 watch_var = self._model.get(watch_var)
             except KeyError:
-                raise myokit.FindNanError(
-                    f'Variable <{watch_var}> not found.')
+                raise myokit.FindNanError(f'Variable <{watch_var}> not found.')
             if not watch_var.is_state():
                 raise myokit.FindNanError(
                     'The watched variable must be a state.')
@@ -500,7 +500,7 @@ class SimulationOpenCL(myokit.CModule):
             except (TypeError, ValueError):
                 raise myokit.FindNanError(
                     'A safe range must be specified for the watched variable'
-                    ' as a tuple (lower, upper).')
+                    ' as a tuple "(lower, upper)".')
             if lo >= hi:
                 raise myokit.FindNanError(
                     'The safe range must have a lower bound that is lower than'
@@ -510,7 +510,7 @@ class SimulationOpenCL(myokit.CModule):
                 # Find first occurence of out-of-bounds error
                 ifirst = None
                 kfirst = None
-                post = '.' + watch_var.qname()
+                post = f'.{watch_var.qname()}'
                 lower, upper = safe_range
                 for dims in myokit._dimco(*self._dims):
                     key = '.'.join([str(x) for x in dims]) + post
@@ -701,14 +701,14 @@ class SimulationOpenCL(myokit.CModule):
         # Check input
         x = int(x)
         if x < 0 or x >= self._dims[0]:
-            raise IndexError('X-coordinate out of range: ' + str(x) + '.')
+            raise IndexError(f'X-coordinate out of range: {x}.')
         if len(self._dims) == 2:
             if y is None:
                 raise ValueError(
                     'No y-coordinate specified in 2-dimensional simulation.')
             y = int(y)
             if y < 0 or y >= self._dims[1]:
-                raise IndexError('Y-coordinate out of range: ' + str(y) + '.')
+                raise IndexError(f'Y-coordinate out of range: {y}.')
         elif y is None:
             y = 0
         elif y != 0:
@@ -819,14 +819,14 @@ class SimulationOpenCL(myokit.CModule):
         # Check input
         x = int(x or 0)
         if x < 0 or x >= self._dims[0]:
-            raise IndexError('X-coordinate out of range: ' + str(x) + '.')
+            raise IndexError(f'X-coordinate out of range: {x}.')
         if len(self._dims) == 2:
             if y is None:
                 raise ValueError(
                     'No y-coordinate specified in 2-dimensional simulation.')
             y = int(y)
             if y < 0 or y >= self._dims[1]:
-                raise IndexError('Y-coordinate out of range: ' + str(y) + '.')
+                raise IndexError(f'Y-coordinate out of range: {y}.')
         elif not (y is None or y == 0):
             raise ValueError(
                 'Y-coordinate specified for 1-dimensional simulation.')
@@ -860,7 +860,6 @@ class SimulationOpenCL(myokit.CModule):
     def neighbours(self, x, y=None):
         """ Alias of :meth:`neighbors`. """
         # Deprecated since 2023-06-07
-        import warnings
         warnings.warn('The method SimulationOpenCL.neighbours() is deprecated.'
                       ' Please use neighbors() instead.')
 
@@ -1132,13 +1131,13 @@ class SimulationOpenCL(myokit.CModule):
                 txt.append(
                     'Encountered numerical error at t='
                     + myokit.float.str(time, precision=self._precision)
-                    + ' in cell ' + icell_str + ' when ' + var + '='
+                    + f' in cell {icell_str} when {var}='
                     + myokit.float.str(value, precision=self._precision) + '.')
 
                 # Check if this cell was paced.
                 is_paced = self.is_paced(*icell)
-                is_paced_str = (', cell ' + icell_str + ' '
-                                + ('IS' if is_paced else 'is NOT') + ' paced')
+                is_paced_str = 'IS' if is_paced else 'is NOT'
+                is_paced_str = f', cell {icell_str} {is_paced_str} paced'
 
                 # Get the names of the variables used in bindings, to use when
                 # calculating the derivatives
@@ -1178,11 +1177,11 @@ class SimulationOpenCL(myokit.CModule):
                         '  Diffusion current: ' + myokit.float.str(
                             bounds[0][vdiff], precision=self._precision))
                 if neighbors:
-                    txt.append('  Connected cells: ' + neighbors_str)
+                    txt.append(f'  Connected cells: {neighbors_str}')
 
                 # Show previous state (and derivatives)
                 n_states = len(states)
-                txt.append('Obtained ' + str(n_states) + ' previous state(s).')
+                txt.append(f'Obtained {n_states} previous state(s).')
                 if n_states > 1:
                     # Get state and input at previous state
                     state = states[1]
@@ -1225,7 +1224,7 @@ class SimulationOpenCL(myokit.CModule):
                             '  Diffusion current: ' + myokit.float.str(
                                 bounds[1][vdiff], precision=self._precision))
                     if neighbors:
-                        txt.append('  Connected cells: ' + neighbors_str)
+                        txt.append(f'  Connected cells: {neighbors_str}')
 
                     # Show all variables with non-finite values
                     txt.append(
@@ -1287,9 +1286,9 @@ class SimulationOpenCL(myokit.CModule):
 
         gx, gy = float(gx), float(gy)
         if gx < 0:
-            raise ValueError('Invalid conductance gx=' + str(gx))
+            raise ValueError(f'Invalid conductance gx={gx}.')
         if gy < 0:
-            raise ValueError('Invalid conductance gy=' + str(gy))
+            raise ValueError(f'Invalid conductance gy={gy}.')
         self._gx, self._gy = gx, gy
         self._gx_field = self._gy_field = None
         self._connections = None
@@ -1321,33 +1320,32 @@ class SimulationOpenCL(myokit.CModule):
         if len(self._dims) == 1:
             s = self._nx - 1
             if gx.shape != (s, ):
-                raise ValueError(
-                    'The argument `gx` must have length ' + str(s) + '.')
+                raise ValueError(f'The argument "gx" must have length {s}.')
             if gy is not None:
                 raise ValueError(
-                    'For 1-d simulations the argument `gy` must be None.')
+                    'For 1-d simulations the argument "gy" must be None.')
         else:
             s = (self._ny, self._nx - 1)
             if gx.shape != s:
                 raise ValueError(
-                    'The argument `gx` must have dimensions ' + str(s) + '.')
+                    f'The argument "gx" must have dimensions {s}.')
 
             if gy is None:
                 raise ValueError(
-                    'The argument `gy` must be set for 2-d simulations.')
+                    'The argument "gy" must be set for 2-d simulations.')
             gy = np.asarray(gy, dtype=float)
             s = (self._ny - 1, self._nx)
             if gy.shape != s:
                 raise ValueError(
-                    'The argument `gy` must have dimensions ' + str(s) + '.')
+                    f'The argument "gy" must have dimensions {s}.')
 
         # Check the field values
         if np.any(gx < 0):
             raise ValueError(
-                'The argument `gx` can not contain negative values.')
+                'The argument "gx" can not contain negative values.')
         if (gy is not None) and np.any(gy < 0):
             raise ValueError(
-                'The argument `gy` can not contain negative values.')
+                'The argument "gy" can not contain negative values.')
 
         # Store
         self._gx_field = list(gx.reshape((self._nx - 1) * self._ny))
@@ -1398,22 +1396,18 @@ class SimulationOpenCL(myokit.CModule):
             # Check indices
             i, j = int(i), int(j)
             if i == j or i < 0 or j < 0 or i >= self._nx or j >= self._nx:
-                raise ValueError(
-                    'Invalid connection: (' + str(i) + ', ' + str(j) + ', '
-                    + str(c) + ')')
+                raise ValueError(f'Invalid connection: ({i}, {j}, {c}).')
 
             # Order indices, and detect doubles
             i, j = (i, j) if i < j else (j, i)
             if (i, j) in doubles:
-                raise ValueError(
-                    'Duplicate connection: (' + str(i) + ', ' + str(j) + ', '
-                    + str(c) + ')')
+                raise ValueError(f'Duplicate connection: ({i}, {j}, {c}).')
             doubles.add((i, j))
 
             # Check conductance
             c = float(c)
             if c < 0:
-                raise ValueError('Invalid conductance: ' + str(c))
+                raise ValueError(f'Invalid conductance: {c}.')
 
             # Store connection
             conns.append((i, j, c))
@@ -1438,7 +1432,7 @@ class SimulationOpenCL(myokit.CModule):
         var = self._model.get(var)
         if not var.is_literal():
             raise ValueError(
-                'The given variable <' + var.qname() + '> is not a literal.')
+                f'The given variable <{var.qname()}> is not a literal.')
         # Update value in internal model (will update its defined value when
         # the kernel is generated before the next run).
         self._model.set_value(var.qname(), value)
@@ -1493,14 +1487,12 @@ class SimulationOpenCL(myokit.CModule):
         if len(self._dims) == 1:
             if values.shape != (self._nx, ):
                 raise ValueError(
-                    'The argument `values` must have length ' + str(self._nx)
-                    + '.')
+                    f'The argument `values` must have length {self._nx}.')
         else:
             shape = (self._ny, self._nx)
             if values.shape != shape:
                 raise ValueError(
-                    'The argument `values` must have dimensions ' + str(shape)
-                    + '.')
+                    f'The argument `values` must have dimensions {shape}.')
         # Add field
         self._fields[var] = list(values.reshape(self._nx * self._ny))
 
@@ -1587,16 +1579,13 @@ class SimulationOpenCL(myokit.CModule):
             for cell in cells:
                 cell = int(cell)
                 if cell < 0 or cell >= self._nx:
-                    raise IndexError(
-                        'Cell index out of range: ' + str(cell) + '.')
+                    raise IndexError(f'Cell index out of range: {cell}.')
                 paced_cells.append(cell)
         else:
             for i, j in cells:
                 i, j = int(i), int(j)
                 if i < 0 or j < 0 or i >= self._nx or j >= self._ny:
-                    raise IndexError(
-                        'Cell index out of range: (' + str(i) + ', ' + str(j)
-                        + ').')
+                    raise IndexError(f'Cell index out of range: ({i}, {j}).')
                 paced_cells.append(i + j * self._nx)
         # Set list of paced cells
         self._paced_cells = paced_cells

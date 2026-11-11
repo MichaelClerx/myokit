@@ -8,6 +8,7 @@ import collections
 import io
 import math
 import re
+import warnings
 
 import numpy
 
@@ -29,14 +30,14 @@ def check_name(name):
     # Check name syntax
     if NAME.match(name) is None:
         raise myokit.InvalidNameError(
-            'The name <' + str(name) + '> is  invalid. The first character of'
-            ' a name should be a letter from the range [a-zA-Z]. Any'
-            ' subsequent characters can be taken from the set [a-zA-Z0-9_].')
+            f'The name <{name}> is  invalid. The first character of a name'
+            ' should be a letter from the range [a-zA-Z]. Any subsequent'
+            ' characters can be taken from the set [a-zA-Z0-9_].')
 
     # Check for keywords
     if name in myokit.KEYWORDS:
         raise myokit.InvalidNameError(
-            'The name <' + str(name) + '> is a reserved keyword.')
+            f'The name <{name}> is a reserved keyword.')
 
     return name
 
@@ -59,8 +60,8 @@ class MetaDataContainer(dict):
         # Check key
         if META.match(key) is None:
             raise myokit.InvalidMetaDataNameError(
-                'The key <' + str(key) + '>'
-                ' is not a valid meta-data property identifier.')
+                f'The key <{key}> is not a valid meta-data property'
+                ' identifier.')
         return super().__getitem__(key)
 
     def __setitem__(self, key, item):
@@ -69,8 +70,8 @@ class MetaDataContainer(dict):
         # Check key
         if META.match(key) is None:
             raise myokit.InvalidMetaDataNameError(
-                'The key <' + str(key) + '>'
-                ' is not a valid meta-data property identifier.')
+                f'The key <{key}> is not a valid meta-data property'
+                ' identifier.')
         super().__setitem__(key, item)
 
 
@@ -105,18 +106,18 @@ class ObjectWithMetaData:
             if k in ignore:
                 continue
             v = str(v)
-            key = TAB * tabs + k.strip() + ': '
+            key = f'{TAB * tabs}{k.strip()}: '
             eol = '\n'
             if ('\n' in v) or ('\r' in v) or (v.strip() == ''):
                 v.replace('\r\n', '\n')
                 v.replace('\r', '\n')
-                b.write(key + '"""\n')
+                b.write(f'{key}"""\n')
                 pre = TAB * (1 + tabs)
                 for line in v.split(eol):
-                    b.write(pre + line + eol)
-                b.write(pre + '"""\n')
+                    b.write(f'{pre}{line}{eol}')
+                b.write(f'{pre}"""\n')
             else:
-                b.write(key + v + eol)
+                b.write(f'{key}{v}{eol}')
 
 
 class ModelPart(ObjectWithMetaData):
@@ -230,7 +231,7 @@ class ModelPart(ObjectWithMetaData):
         """
         if self._parent is None or self._parent == hide:
             return self._name
-        return self._parent.qname(hide) + '.' + self._name
+        return f'{self._parent.qname(hide)}.{self._name}'
 
     def __repr__(self):
         return f'<{type(self)}({self.qname()})>'
@@ -483,8 +484,7 @@ class VarOwner(ModelPart, VarProvider):
         # Check if we can add it
         if not self.can_add_variable(name):
             raise myokit.DuplicateName(
-                'The name <' + str(name) + '> is already in use within this'
-                ' scope.')
+                f'The name <{name}> is already in use within this scope.')
 
         # Try adding it
         try:
@@ -527,13 +527,13 @@ class VarOwner(ModelPart, VarProvider):
             return self.add_variable(name)
         except myokit.DuplicateName:
             # Get similar names
-            root = name + '_'
+            root = f'{name}_'
             n = len(name) + 1
             names = {
                 x.name() for x in self.variables() if x.name()[:n] == root}
             # Find unused variant
             for i in range(1, 2 + len(names)):
-                name = root + str(i)
+                name = f'{root}{i}'
                 if name not in names:
                     break
             # Add
@@ -633,7 +633,7 @@ class VarOwner(ModelPart, VarProvider):
             if name.model() is self._model:
                 return name
             raise ValueError(
-                'Given argument ' + repr(name) + ' is from a different model.')
+                f'Given argument "{repr(name)}" is from a different model.')
 
         # Find variable
         names = name.split('.')
@@ -646,7 +646,7 @@ class VarOwner(ModelPart, VarProvider):
 
         # Apply optional class filter
         if class_filter and not isinstance(x, class_filter):
-            raise KeyError(str(name) + ' of class ' + str(class_filter))
+            raise KeyError(f'{name} of class {class_filter}')
 
         return x
 
@@ -865,8 +865,7 @@ class Model(ObjectWithMetaData, VarProvider):
         # Check for duplicate names
         if name in self:
             raise myokit.DuplicateName(
-                'There is already a component named <' + str(name)
-                + '> in this model.')
+                f'There is already a component named <{name}> in this model.')
         try:
             self._components[name] = comp = Component(self, name)
         finally:
@@ -890,7 +889,7 @@ class Model(ObjectWithMetaData, VarProvider):
             return self.add_component(name)
         except myokit.DuplicateName:
             # Get similar names
-            root = name + '_'
+            root = f'{name}_'
             n = len(name) + 1
             names = {
                 x.name() for x in self.components() if x.name()[:n] == root}
@@ -923,8 +922,8 @@ class Model(ObjectWithMetaData, VarProvider):
             for k, arg in enumerate(arguments):
                 if arg in arguments[k + 1:]:
                     raise myokit.DuplicateFunctionArgument(
-                        'The argument name <' + str(arg)
-                        + '> is already in use in this function.')
+                        f'The argument name <{arg}> is already in use in this'
+                        ' function.')
 
         # Check template is expression
         if not isinstance(template, myokit.Expression):
@@ -934,11 +933,11 @@ class Model(ObjectWithMetaData, VarProvider):
 
         # Check signature uniqueness. Add number of arguments to name to allow
         # overloading
-        uname = name + '(' + str(n) + ')'
+        uname = f'{name}({n})'
         if uname in self._user_functions:
             raise myokit.DuplicateFunctionName(
-                'A function called "' + name + '" with ' + str(n)
-                + ' arguments is already defined in this model.')
+                f'A function called "{name}" with {n} arguments is already'
+                ' defined in this model.')
 
         # Check template
         refs = template.references()
@@ -959,13 +958,13 @@ class Model(ObjectWithMetaData, VarProvider):
             arg = arg._value
             if arg not in ref_names:
                 raise myokit.InvalidFunction(
-                    'The function argument <' + arg
-                    + '> is declared but never used.')
+                    f'The function argument <{arg}> is declared but never'
+                    ' used.')
             ref_names.remove(arg)
         if ref_names:
             raise myokit.InvalidFunction(
-                'The variable <' + ref_names.pop()
-                + '> is used in the function but never declared.')
+                f'The variable <{ref_names.pop()}> is used in the function but'
+                ' never declared.')
 
         # Create function and return
         func = UserFunction(name, arguments, template)
@@ -1075,7 +1074,7 @@ class Model(ObjectWithMetaData, VarProvider):
             # Get rhs unit
             e = var.rhs()
             if e is None:
-                raise myokit.IntegrityError('No RHS set for ' + var.qname())
+                raise myokit.IntegrityError(f'No RHS set for <{var.qname()}>.')
             e = e.eval_unit(mode)
 
             # No unit? Then allow (in strict mode v and e are never None)
@@ -1090,12 +1089,10 @@ class Model(ObjectWithMetaData, VarProvider):
 
             # Compare loosely
             if not myokit.Unit.close(v, e):
-                msg = 'Incompatible units in <' + var.qname() + '>'
-                if var._token is not None:
-                    msg += ' on line ' + str(var._token[2])
-                msg += '. Variable unit ' + v.clarify()
-                msg += ' differs from calculated unit ' + e.clarify()
-                msg += ', by a factor ' + (v / e).clarify() + '.'
+                tok = '' if var._token is None else f' on line {var._token[2]}'
+                msg = (f'Incompatible units in <{var.qname()}>{tok}. Variable'
+                       f' unit {v.clarify()} differs by calculated unit'
+                       f' {e.clarify()}, by a factor {(v / e).clarify()}.')
                 raise myokit.IncompatibleUnitError(msg, var._token)
 
     def clone(self):
@@ -1172,14 +1169,14 @@ class Model(ObjectWithMetaData, VarProvider):
         # Initial state
         if self._state_vars:
             pre = t * TAB
-            b.write(pre + '# Initial values\n')
+            b.write(f'{pre}# Initial values\n')
             names = [v.qname() for v in self._state_vars]
             values = [e.code() for e in self._state_init]
             n = max([len(name) for name in names])
             for name, value in zip(names, values):
-                b.write(pre + name + ' ' * (n - len(name)) + ' = '
-                        + value + '\n')
-            b.write(pre + '\n')
+                space = ' ' * (n - len(name))
+                b.write(f'{pre}{name}{space} = {value}\n')
+            b.write(f'{pre}\n')
         else:
             # No initial state? Then add newline
             b.write('\n')
@@ -1320,11 +1317,11 @@ class Model(ObjectWithMetaData, VarProvider):
             name = prepend(comp._name)
             if name in disputed:
                 i = 1
-                root = name + '_'
-                name = root + str(i)
+                root = f'{name}_'
+                name = f'{root}{i}'
                 while name in allnames:
                     i += 1
-                    name = root + str(i)
+                    name = f'{root}{i}'
                 allnames.add(name)
             comp._uname = name
 
@@ -1336,12 +1333,12 @@ class Model(ObjectWithMetaData, VarProvider):
                     name = prepend(var.qname().replace('.', '_'))
                     if name in allnames:
                         i = 1
-                        root = name + '_'
-                        name = root + str(i)
+                        root = f'{name}_'
+                        name = f'{root}{i}'
                         while name in allnames:  # pragma: no cover
                             # Not sure if this is reachable!
                             i += 1
-                            name = root + str(i)
+                            name = f'{root}{i}'
                     allnames.add(name)
                 var._uname = name
 
@@ -1537,14 +1534,12 @@ class Model(ObjectWithMetaData, VarProvider):
         else:
             if len(state) != n:
                 raise ValueError(
-                    'Argument `state` must be a sequence of (' + str(n)
-                    + ') floating point numbers.')
+                    f'Argument "state" must be a sequence of {n} floats.')
 
         if state2 is not None:
             if len(state2) != n:
                 raise ValueError(
-                    'Argument `state2` must be a sequence of (' + str(n)
-                    + ') floating point numbers.')
+                    f'Argument "state2" must be a sequence of {n} floats.')
 
         out = []
         n = max([len(x.qname()) for x in self.states()])
@@ -1588,15 +1583,13 @@ class Model(ObjectWithMetaData, VarProvider):
             state = self.initial_values(as_floats=True)
         elif len(state) != n:
             raise ValueError(
-                'Argument `state` must be a sequence of (' + str(n)
-                + ') floating point numbers.')
+                f'Argument "state" must be a sequence of {n} floats.')
 
         if derivatives is None:
             derivatives = self.evaluate_derivatives(state, precision=precision)
         elif len(derivatives) != n:
             raise ValueError(
-                'Argument `derivatives` must be a sequence of (' + str(n)
-                + ') floating point numbers.')
+                f'Argument "derivatives" must be a sequence of {n} floats.')
 
         out = []
         n = max([len(x.qname()) for x in self.states()])
@@ -1613,7 +1606,7 @@ class Model(ObjectWithMetaData, VarProvider):
         Formats all warnings generated during the last call to :meth:`validate`
         and returns a string containing the result.
         """
-        pre = str(len(self._warnings)) + ' validation warning(s) given'
+        pre = f'{len(self._warnings)} validation warning(s) given'
         if len(self._warnings) == 0:
             return pre
         out = []
@@ -1621,7 +1614,8 @@ class Model(ObjectWithMetaData, VarProvider):
         f = f' ({{:{n}}}) {{:}}'
         for i, w in enumerate(self._warnings):
             out.append(f.format(1 + i, w))
-        return pre + ':\n' + '\n'.join(out)
+        out = '\n'.join(out)
+        return f'{pre}:\n{out}'
 
     def get(self, name, class_filter=None):
         """
@@ -1636,7 +1630,7 @@ class Model(ObjectWithMetaData, VarProvider):
             if name.model() is self:
                 return name
             raise ValueError(
-                'Given argument ' + repr(name) + ' is from a different model.')
+                f'Given argument "{repr(name)}" is from a different model.')
 
         # Split name, get different parts
         names = name.split('.')
@@ -1654,7 +1648,7 @@ class Model(ObjectWithMetaData, VarProvider):
         """
         Returns the user function with name ``name`` and ``nargs`` arguments.
         """
-        return self._user_functions[str(name) + '(' + str(nargs) + ')']
+        return self._user_functions[f'{name}({nargs})']
 
     def __getitem__(self, key):
         return self._components[key]
@@ -1735,7 +1729,7 @@ class Model(ObjectWithMetaData, VarProvider):
         :class:`myokit.VariableMappingError` will be raised. A
         :class:`myokit.DuplicateNameError` will be raised if the component's
         name or ``new_name`` clashes with an existing component name. If unit
-        conversion is enabled and variables with incompattible units are
+        conversion is enabled and variables with incompatible units are
         mapped onto each other, a class:`myokit.IncompatibleUnitsError` will
         be raised.
         """
@@ -1745,9 +1739,8 @@ class Model(ObjectWithMetaData, VarProvider):
             external_component = [external_component]
         else:
             ext_comp_error_str = (
-                'Method import_component() expects a myokit.Component '
-                'or list of myokit.Components'
-            )
+                'Method import_component() expects a myokit.Component or list'
+                ' of myokit.Components')
             try:
                 ok = all(
                     isinstance(c, myokit.Component) for c in external_component
@@ -1763,10 +1756,9 @@ class Model(ObjectWithMetaData, VarProvider):
                 new_name.append(comp.name())
 
         new_name_error_str = (
-            'new_name must be a list of strings the same length '
-            'as external_component, or a string if only one '
-            'component is provided'
-        )
+            '"new_name" must be a list of strings the same length as'
+            ' "external_component", or a string if only one component is'
+            ' provided.')
         if isinstance(new_name, str):
             if len(external_component) != 1:
                 raise TypeError(new_name_error_str)
@@ -1792,8 +1784,7 @@ class Model(ObjectWithMetaData, VarProvider):
                 raise ValueError(
                     'The imported components must be from the same model, '
                     f'<{comp.name()}> and <{external_component[0].name()}> are'
-                    ' not.'
-                )
+                    ' not.')
         if ext_model == self:
             raise ValueError(
                 'The component(s) to import are already part of this model.')
@@ -1852,22 +1843,21 @@ class Model(ObjectWithMetaData, VarProvider):
                 if isinstance(self_var, myokit.Variable):
                     if not self_var.has_ancestor(self):
                         raise myokit.VariableMappingError(
-                            'The variable <' + self_var.qname() + '> in the'
-                            ' given var_map\'s values is not part of this'
-                            ' model.')
+                            f'The variable <{self_var.qname()}> in the given'
+                            ' var_map\'s values is not part of this model.')
                 elif isinstance(self_var, str):
                     try:
                         self_var = self.var(self_var)
                     except KeyError:
                         raise myokit.VariableMappingError(
-                            'The variable name <' + self_var + '> appears in'
-                            ' the var_map\'s values but was not found in this'
+                            f'The variable name <{self_var}> appears in the'
+                            ' var_map\'s values but was not found in this'
                             ' model.')
                 else:
                     raise TypeError(
                         'Variables in the var_map need to be specified as'
-                        ' Variable objects or fully qualified names. Got '
-                        + str(type(self_var)) + '.')
+                        ' Variable objects or fully qualified names. Got'
+                        f' {type(self_var)}.')
 
                 # Check source variables in var map are variables and exist
                 # in external model
@@ -1882,20 +1872,19 @@ class Model(ObjectWithMetaData, VarProvider):
                         ext_var = ext_model.var(ext_var)
                     except KeyError:
                         raise myokit.VariableMappingError(
-                            'The variable name <' + ext_var + '> appears in'
-                            ' the var_map\'s keys but was not found in the'
-                            ' source model.')
+                            f'The variable name <{ext_var}> appears in the'
+                            ' var_map\'s keys but was not found in the source'
+                            ' model.')
                 else:
                     raise TypeError(
                         'Variables in the var_map need to be specified as'
                         ' Variable objects or fully qualified names. Got '
-                        + str(type(self_var)) + '.')
+                        f' {type(self_var)}.')
 
                 # check for duplicates
                 if self_var in used_local_vars:
                     raise myokit.VariableMappingError(
-                        'Multiple variables map onto <' + self_var.name()
-                        + '>.')
+                        f'Multiple variables map onto <{self_var.name()}>.')
                 used_local_vars.add(self_var)
 
                 # Valid mapping: Store, but only if this is a required variable
@@ -1923,7 +1912,7 @@ class Model(ObjectWithMetaData, VarProvider):
                     var_map[ext_var] = self.get(ext_var.qname())
                 else:
                     raise myokit.VariableMappingError(
-                        ext_var.qname() + ' is used by the external_component'
+                        f'{ext_var.qname()} is used by the external_component'
                         ' but cannot be mapped onto any of the variables in'
                         ' this model.')
 
@@ -1946,8 +1935,8 @@ class Model(ObjectWithMetaData, VarProvider):
                             self_unit, ext_unit)
                     except myokit.IncompatibleUnitError as e:
                         raise myokit.VariableMappingError(
-                            'Unable to map <' + ext_var.qname() + '> onto <'
-                            + self_var.qname() + '>: ' + str(e))
+                            f'Unable to map <{ext_var.qname()}> onto'
+                            f' <{self_var.qname()}>: {e}')
 
             # Check if time-unit conversion is needed
             need_time_factor = False
@@ -1985,7 +1974,7 @@ class Model(ObjectWithMetaData, VarProvider):
                     except myokit.IncompatibleUnitError as e:
                         raise myokit.VariableMappingError(
                             'Unable to map time variables due to unit'
-                            ' mismatch: ' + str(e))
+                            f' mismatch: {e}')
 
         # Clone component pt 1: create, meta data, empty variables
         new_component = []  # List of components
@@ -2091,7 +2080,6 @@ class Model(ObjectWithMetaData, VarProvider):
         defining this model's initial values.
         """
         # Deprecated since 2023-02-22
-        import warnings
         warnings.warn('The method `inits` is deprecated.')
 
         def StateDefIterator(model):
@@ -2184,8 +2172,7 @@ class Model(ObjectWithMetaData, VarProvider):
             return self._labels[label]
         except KeyError:
             raise myokit.IncompatibleModelError(
-                self.name(),
-                'No variable found with label "' + str(label) + '".')
+                self.name(), f'No variable found with label "{label}".')
 
     def __len__(self):
         return len(self._components)
@@ -2196,7 +2183,6 @@ class Model(ObjectWithMetaData, VarProvider):
         file formatted in any style accepted by :func:`myokit.map_to_state`.
         """
         # Deprecated since 2023-02-22
-        import warnings
         warnings.warn('The method `Model.load_state` is deprecated.')
         self.set_initial_values(myokit.load_state(filename, self))
 
@@ -2454,8 +2440,8 @@ class Model(ObjectWithMetaData, VarProvider):
             # Not in shallow? Error in dict
             if lhs not in shallow:
                 raise RuntimeError(  # pragma: no cover
-                    'Variable ' + str(lhs._value) + ' not found in dict of'
-                    ' shallow dependencies')
+                    f'Variable {lhs._value} not found in dict of shallow'
+                    ' dependencies')
 
             # Add this var as a dependency
             deps.add(lhs)
@@ -2625,8 +2611,7 @@ class Model(ObjectWithMetaData, VarProvider):
                 elif v.qname() in state:
                     value = state[v.qname()]
                 else:
-                    raise ValueError(
-                        'Missing state variable: ' + v.qname())
+                    raise ValueError(f'Missing state variable: {v.qname()}')
                 # List or similar? Then use last value
                 try:
                     ini[k] = float(value[-1])
@@ -2635,9 +2620,8 @@ class Model(ObjectWithMetaData, VarProvider):
             state = ini
         # From this point on, assume list
         if len(state) != n:
-            raise ValueError(
-                'Wrong number of list entries, expecting (' + str(n)
-                + ') values, got (' + str(len(state)) + ').')
+            raise ValueError(f'Wrong number of list entries, expecting {n}'
+                             f' values, got {len(state)}.')
         # Convert all to float, create new list, return
         return [float(x) for x in state]
 
@@ -2677,15 +2661,13 @@ class Model(ObjectWithMetaData, VarProvider):
             # Check for existing binding
             if label in self._bindings:
                 raise myokit.InvalidBindingError(
-                    'Duplicate binding: <'
-                    + str(self._bindings[label].qname())
-                    + '> is already bound to "' + str(label) + '".')
+                    f'Duplicate binding: <{self._bindings[label].qname()}> is'
+                    f' already bound to "{label}".')
             # Check for existing label
             if label in self._labels:
                 raise myokit.InvalidBindingError(
-                    'Duplicate binding: Binding "' + str(label)
-                    + '" is already in use as a label for <'
-                    + str(self._labels[label].qname()) + '>.')
+                    f'Duplicate binding: Binding "{label}" is already in use'
+                    f' as a label for <{self._labels[label].qname()}>.')
             # Add binding
             self._bindings[label] = variable
 
@@ -2701,15 +2683,13 @@ class Model(ObjectWithMetaData, VarProvider):
             # Check for existing label
             if label in self._labels:
                 raise myokit.InvalidLabelError(
-                    'Duplicate label: "' + str(label)
-                    + '" is already in use as a label for <'
-                    + str(self._labels[label].qname()) + '>.')
+                    f'Duplicate label: "{label}" is already in use as a label'
+                    f' for <{self._labels[label].qname()}>.')
             # Check for existing binding
             if label in self._bindings:
                 raise myokit.InvalidLabelError(
-                    'Duplicate label: Label "' + str(label)
-                    + '" is already in use as a binding for <'
-                    + str(self._bindings[label].qname()) + '>.')
+                    f'Duplicate label: Label "{label}" is already in use as a'
+                    f' binding for <{self._bindings[label].qname()}>.')
             # Add label
             self._labels[label] = variable
 
@@ -2735,8 +2715,7 @@ class Model(ObjectWithMetaData, VarProvider):
                     ' state variable qnames.')
             if v in state:
                 raise ValueError(
-                    'Duplicate entry in order specification: "'
-                    + str(v.qname()) + '".')
+                    f'Duplicate entry in order specification: "{v.qname()}".')
             state.append(v)
             current.append(self._state_init[v._index])
         self._state_vars = state
@@ -2823,7 +2802,7 @@ class Model(ObjectWithMetaData, VarProvider):
         ``<Model(model_name)>``.
         """
         try:
-            return '<Model(' + self.meta['name'] + ')>'
+            return f'<Model({self.meta["name"]})>'
         except KeyError:
             return '<Unnamed Model>'
 
@@ -2893,7 +2872,7 @@ class Model(ObjectWithMetaData, VarProvider):
         # Get name for new component
         comp = 'remaining'
         if comp in self._components:
-            comp_root = comp + '_'
+            comp_root = f'{comp}_'
             i = 1
             while comp in self._components:
                 i += 1
@@ -2913,7 +2892,6 @@ class Model(ObjectWithMetaData, VarProvider):
         Deprecated method: Saves the model state to a file (as floats).
         """
         # Deprecated since 2023-02-22
-        import warnings
         warnings.warn('The method `save_state` is deprecated.')
 
         return myokit.save_state(
@@ -2970,7 +2948,6 @@ class Model(ObjectWithMetaData, VarProvider):
         Deprecated method: use :meth:`set_initial_values` instead.
         """
         # Deprecated since 2023-02-22
-        import warnings
         warnings.warn(
             'The method `set_state` is deprecated. Please use'
             ' `set_initial_values` instead.')
@@ -3012,9 +2989,10 @@ class Model(ObjectWithMetaData, VarProvider):
         rhs = var.rhs()
         if var.is_state():
             value = var.initial_value()
-            out.append('Initial value = ' + value.code())
+            out.append(f'Initial value = {value.code()}')
             if not isinstance(value, myokit.Number):
-                out.append('              = ' + format_float(value))
+                # Number is already shown, if not a number, show evaluation
+                out.append(f'              = {format_float(value)}')
             out.append(spacer)
         varname = var.lhs().code()
 
@@ -3040,7 +3018,7 @@ class Model(ObjectWithMetaData, VarProvider):
             out.append(spacer)
 
         # Add final value
-        out.append(varname + ' = ' + rhs.code())
+        out.append(f'{varname} = {rhs.code()}')
         out.append(' ' * len(varname) + ' = ' + format_float(rhs.eval()))
         return '\n'.join(out)
 
@@ -3053,13 +3031,13 @@ class Model(ObjectWithMetaData, VarProvider):
         var, out = self._var_info(var, spacer)
         eqs, args = self.expressions_for(var)
         if args:
-            out.append(str(var) + ' is a function of:')
+            out.append(f'{var} is a function of:')
             for arg in args:
-                out.append('  ' + str(arg))
+                out.append(f'  {arg}')
             out.append(spacer)
-        out.append('Expressions for ' + str(var) + ':')
+        out.append(f'Expressions for {var}:')
         for eq in eqs:
-            out.append('  ' + str(eq))
+            out.append(f'  {eq}')
         return '\n'.join(out)
 
     def show_line_of(self, var, raw=False):
@@ -3076,7 +3054,7 @@ class Model(ObjectWithMetaData, VarProvider):
 
         var, out = self._var_info(var)
         if var._token is not None:
-            out.append('Defined on line ' + str(var._token[2]))
+            out.append(f'Defined on line {var._token[2]}')
         return '\n'.join(out)
 
     def solvable_order(self):
@@ -3306,7 +3284,6 @@ class Model(ObjectWithMetaData, VarProvider):
         :meth:`initial_values(as_floats=True)<initial_values>` instead.
         """
         # Deprecated since 2023-02-22
-        import warnings
         warnings.warn(
             'The method `state` is deprecated. Please use'
             ' `initial_values(as_floats=True)` instead.')
@@ -3336,20 +3313,18 @@ class Model(ObjectWithMetaData, VarProvider):
             for c in self.components():
                 for v in c.variables():
                     if v.name() == name:
-                        return (
-                            None, v, 'No component specified for: <' + name
-                            + '>. Did you mean <' + v.qname() + '> ?'
-                        )
+                        return None, v, ('No component specified for:'
+                                f' <{name}>. Did you mean <{v.qname()}> ?')
 
             # No alternative component found
-            msg = 'Unknown variable: <' + name + '>.'
+            msg = f'Unknown variable: <{name}>.'
 
         else:
 
             par, var = name.split('.', 1)
 
             if par not in self._components:
-                msg = 'Unknown component: <' + par + '>.'
+                msg = f'Unknown component: <{par}>.'
             else:
                 try:
                     names = var.split('.')
@@ -3358,7 +3333,7 @@ class Model(ObjectWithMetaData, VarProvider):
                         var = var[nm]
                     return (var, None, None)
                 except KeyError:
-                    msg = 'Unknown variable: <' + name + '>.'
+                    msg = f'Unknown variable: <{name}>.'
 
         # Suggest closest match
         qname = name
@@ -3381,9 +3356,9 @@ class Model(ObjectWithMetaData, VarProvider):
                 sg = v
 
         if sg is not None:
-            msg += ' Did you mean "' + sg.qname() + '"?'
+            msg = f'{msg} Did you mean "{sg.qname()}"?'
             if sg.qname().lower() == qname_low:
-                msg += ' (Case mismatch)'
+                msg = f'{msg} (Case mismatch)'
             return (None, sg, msg)
 
         # At the moment, we're accepting almost everything, so no need to test
@@ -3532,8 +3507,7 @@ class Model(ObjectWithMetaData, VarProvider):
         def follow(lhs, var, trail, mark_used=True):
             if lhs in trail:
                 # Catch cycles
-                i = trail.index(lhs)
-                c = trail[i:]
+                c = trail[trail.index(lhs):]
                 c.append(lhs)
                 raise myokit.CyclicalDependencyError(c)
             if not var._used:
@@ -3547,21 +3521,17 @@ class Model(ObjectWithMetaData, VarProvider):
                     var._used = True
 
         # Follow all state variables (unless already visited), all bound
-        # variables and all used variables.
+        # variables and all labelled variables.
         used = [x for x in self._state_vars]
         used += [x for x in self._bindings.values()]
         used += [x for x in self._labels.values()]
 
         # Check for cycles
-        trail = []
-
         # Despite its "slow" is-in check, using a list for this purpose is
         # faster than using an OrderedDict. Tested this. It's probably because
         # the trail is usually quite short and hashing is slow.
         for var in used:
-            lhs = var.lhs()
-            trail = []
-            follow(lhs, var, trail)
+            follow(var.lhs(), var, [])
 
         # Check for unused variables
         to_remove = []
@@ -3576,16 +3546,14 @@ class Model(ObjectWithMetaData, VarProvider):
                     self._warn(myokit.UnusedVariableError(var))
                     # In this case, the unused variables should also be checked
                     # for cyclical references!
-                    lhs = var.lhs()
-                    trail = []
-                    follow(lhs, var, trail, False)
+                    follow(var.lhs(), var, [], False)
 
         # Remove unused variables (if enabled)
         for var in to_remove:
             # Unused variables may still depend on each other
             var.set_rhs(0)
         for var in to_remove:
-            self._warn('Removing unused variable: <' + var.qname() + '>.')
+            self._warn(f'Removing unused variable: <{var.qname()}>.')
             # If a nested set of variables is in to_remove, the parent may be
             # deleted before the kids, which will trigger a delete of the kids.
             # To avoid trying to delete things twice, check if the parent still
@@ -3618,7 +3586,7 @@ class Model(ObjectWithMetaData, VarProvider):
                     raise Exception(var[2])
                 var = var[1]
                 out.append(
-                    'Variable not found, assuming <' + var.qname() + '>.')
+                    f'Variable not found, assuming <{var.qname()}>.')
             else:
                 var = var[0]
         if var.is_state():
@@ -3630,17 +3598,17 @@ class Model(ObjectWithMetaData, VarProvider):
                 kind = 'Calculated constant'
         else:
             kind = 'Intermediary variable'
-        out.append('Showing: ' + var.qname() + '  (' + kind + ')')
+        out.append(f'Showing: {var.qname()}  ({kind})')
         if spacer is not None:
             out.append(spacer)
         unit = var.unit()
         if unit is not None:
-            out.append('in ' + str(unit))
+            out.append(f'in {unit}')
             if spacer is not None:
                 out.append(spacer)
         desc = var.meta.get('desc')
         if desc is not None:
-            out.append('desc: ' + str(desc))
+            out.append(f'desc: {desc}')
             if spacer is not None:
                 out.append(spacer)
         return (var, out)
@@ -3722,8 +3690,7 @@ class Component(VarOwner):
                 'Aliases can only be created for variables.')
         if not self.can_add_variable(name):
             raise myokit.DuplicateName(
-                'The name <' + str(name) + '> is already in use within this'
-                ' scope.')
+                f'The name <{name}> is already in use within this scope.')
         par = variable.parent()
         if type(par) is not Component:
             raise myokit.IllegalAliasError(
@@ -3774,27 +3741,27 @@ class Component(VarOwner):
         for alias, var in self._alias_map.items():
             if var == variable:
                 return alias
-        raise KeyError('No alias found for <' + variable.qname() + '>.')
+        raise KeyError(f'No alias found for <{variable.qname()}>.')
 
     def _code(self, b, t):
         """
         Internal version of Component.code()
         """
         pre = t * TAB
-        b.write(pre + '[' + self.name() + ']\n')
+        b.write(f'{pre}[{self.name()}]\n')
 
         # Append meta properties
         self._code_meta(b, t)
 
         # Append aliases
         for alias, var in sorted(self._alias_map.items()):
-            b.write(pre + 'use ' + var.qname() + ' as ' + alias + '\n')
+            b.write(f'{pre}use {var.qname()} as {alias}\n')
 
         # Append values
         for v in self.variables(sort=True):
             v._code(b, t)
 
-        b.write(pre + '\n')
+        b.write(f'{pre}\n')
 
     def qname(self, hide=None):
         """
@@ -3891,9 +3858,6 @@ class Variable(VarOwner):
     def __init__(self, parent, name):
         super().__init__(parent, name)
 
-        # Index, only set if this is a state variable
-        self._index = None
-
         # This variable's unit, if given, else dimensionless
         self._unit = None
 
@@ -3902,6 +3866,9 @@ class Variable(VarOwner):
 
         # This variable's binding label, if given
         self._binding = None
+
+        # Index, only set if this is a state variable
+        self._index = None
 
         # Used (created and deleted) by _validate_solvability()
         #   self._used
@@ -3948,7 +3915,7 @@ class Variable(VarOwner):
         - Any child variables will be removed.
 
         """
-        # Set value
+        # Get value to set to
         if value is None:
             self.model().validate()  # Model must be valid before evaluations
             if self._is_state:
@@ -4023,7 +3990,7 @@ class Variable(VarOwner):
         c = self.parent(Component)
         lhs = self._lhs.code(c) if self._lhs else 'UNNAMED'
         rhs = self._rhs.code(c) if self._rhs else 'UNDEFINED'
-        head = lhs + ' = ' + rhs
+        head = f'{lhs} = {rhs}'
 
         # Get description from meta data
         try:
@@ -4040,19 +4007,19 @@ class Variable(VarOwner):
             if self._rhs and self._rhs.is_literal():
                 # Append bind
                 if bind:
-                    text = head + ' bind ' + bind
+                    text = f'{head} bind {bind}'
                     if len(text) < 79:
                         head = text
                         bind = None
                 # Append label
                 if label:
-                    text = head + ' label ' + label
+                    text = f'{head} label {label}'
                     if len(text) < 79:
                         head = text
                         label = None
             # Append desc
             if desc:
-                text = head + ' : ' + desc
+                text = f'{head} : {desc}'
                 if len(text) < 79 and '\n' not in desc and '\r' not in desc:
                     head = text
                     omit.append('desc')
@@ -4068,15 +4035,15 @@ class Variable(VarOwner):
 
         # Append unit
         if unit is not None:
-            b.write(pre + 'in ' + str(unit) + eol)
+            b.write(f'{pre}in {unit}{eol}')
 
         # Append binding
         if bind:
-            b.write(pre + 'bind ' + bind + eol)
+            b.write(f'{pre}bind {bind}{eol}')
 
         # Append label
         if label:
-            b.write(pre + 'label ' + label + eol)
+            b.write(f'{pre}label {label}{eol}')
 
         # Append meta properties
         self._code_meta(b, t, ignore=omit)
@@ -4310,10 +4277,10 @@ class Variable(VarOwner):
 
         # Check that nobody has references to this var's derivative
         if self._refs_by:
-            refs = ', '.join([r.qname() for r in self._refs_by])
+            refs = ' and '.join([r.qname() for r in self._refs_by])
             raise Exception(
                 'Unable to demote variable while references to its derivative'
-                ' are made by (' + refs + ').')
+                f' are made by {refs}.')
 
         model = self.model()
         try:
@@ -4374,7 +4341,6 @@ class Variable(VarOwner):
         """ Deprecated alias of :meth:`index`. """
 
         # Deprecated on 2023-06-07
-        import warnings
         warnings.warn(
             'The method `indice` is deprecated. Please use `index()` instead.')
         return self.index()
@@ -4505,14 +4471,13 @@ class Variable(VarOwner):
         # Deprecated on 2023-02-22
         if state_value is not None:
             if initial_value != 0:
-                raise Exception('Deprecated keyword argument `state_value` can'
-                                ' not be used at the same time as its'
-                                ' replacement `initial_value`.')
+                raise Exception(
+                    'Deprecated keyword argument "state_value" can not be used'
+                    ' at the same time as its replacement "initial_value".')
             initial_value = state_value
 
-            import warnings
-            warnings.warn('The keyword argument `state_value` is deprecated.'
-                          ' Please use `initial_value` instead.')
+            warnings.warn('The keyword argument "state_value" is deprecated.'
+                          ' Please use "initial_value" instead.')
 
         # Parse initial value
         initial_value = self._set_initial_value(initial_value, False)
@@ -4591,11 +4556,11 @@ class Variable(VarOwner):
         func = ['def var_pyfunc_generated(' + ','.join(func) + '):']
         tab = '\t'
         if use_numpy:
-            func.append(tab + 'with numpy.errstate(all=\'ignore\'):')
+            func.append(f'{tab}with numpy.errstate(all=\'ignore\'):')
             tab += '\t'
         for eq in eqs:
             func.append(tab + w.eq(eq))
-        func.append(tab + 'return ' + w.ex(eqs[-1].lhs))
+        func.append(f'{tab}return {w.ex(eqs[-1].lhs)}')
         func = '\n'.join(func) + '\n'
 
         # Create function
@@ -4684,11 +4649,10 @@ class Variable(VarOwner):
             if var._parent is self:
                 deps.add(var)
         if deps:
+            deps = ' and '.join([f'<{var.qname()}>' for var in deps])
             raise myokit.IntegrityError(
-                'Unable to remove all child variables from <'
-                + self.qname() + '>: the RHS still depends on '
-                + ' and '.join(['<' + var.qname() + '>' for var in deps])
-                + '.')
+                f'Unable to remove all child variables from <{self.qname}>:'
+                f' the RHS still depends on {deps}.')
 
         # No dependencies: ok to delete all children
         for kid in list(self.variables()):
@@ -4708,9 +4672,10 @@ class Variable(VarOwner):
 
     def _reset_cache(self, bubble=False):
         """
-        Updates this variable's cached attributes. If ``bubble`` is set to
-        ``True`` and this variable's cache state changes, a cache reset will be
-        triggered in all dependent variables.
+        Updates this variable's cached attributes.
+
+        If ``bubble`` is set to ``True`` and this variable's cache state
+        changes, a cache reset will be triggered in all dependent variables.
         """
         if bubble:
             s_old = (self._is_bound, self._is_state, self._is_intermediary,
@@ -4914,7 +4879,6 @@ class Variable(VarOwner):
         Deprecated method, use :meth:`set_initial_value` instead.
         """
         # Deprecated since 2023-02-22
-        import warnings
         warnings.warn(
             'The method `set_state_value` is deprecated. Please use'
             ' `set_initial_value` instead.')
@@ -4940,7 +4904,6 @@ class Variable(VarOwner):
         :meth:`initial_value(as_float=True)<initial_value>` instead.
         """
         # Deprecated since 2023-02-22
-        import warnings
         warnings.warn(
             'The method `state_value` is deprecated. Please use'
             ' `initial_value(as_float=True)` instead.')
@@ -5184,7 +5147,7 @@ class Equation:
         return self.code()
 
     def __repr__(self):
-        return '<Equation ' + str(self) + '>'
+        return f'<Equation {self.code()}>'
 
 
 class EquationList(list, VarProvider):
@@ -5240,5 +5203,6 @@ class UserFunction:
             raise ValueError('Wrong number of input arguments.')
         for arg in self._arguments:
             if arg not in arguments:
-                raise ValueError('Missing input argument: <' + str(arg) + '>.')
+                raise ValueError(f'Missing input argument: <{arg}>.')
         return self._template.clone(arguments)
+
