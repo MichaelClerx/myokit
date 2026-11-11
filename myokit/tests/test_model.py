@@ -61,8 +61,8 @@ class ModelTest(unittest.TestCase):
         with WarningCollector():
             m.add_function('f', ('a', 'b'), 'a + b')
             self.assertRaisesRegex(
-                myokit.DuplicateFunctionName, 'already defined', m.add_function,
-                'f', ('a', 'b'), 'a - b')
+                myokit.DuplicateFunctionName, 'already defined',
+                m.add_function, 'f', ('a', 'b'), 'a - b')
 
             # Test duplicate argument name
             self.assertRaisesRegex(
