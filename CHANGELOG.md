@@ -6,6 +6,7 @@ This page lists the main changes made to Myokit in each release.
 - Added
 - Changed
 - Deprecated
+  - [#1236](https://github.com/myokit/myokit/pull/1236) User-defined functions in models are deprecated.
 - Removed
 - Fixed
 
