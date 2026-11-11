@@ -908,6 +908,12 @@ class Model(ObjectWithMetaData, VarProvider):
 
         Returns the newly created :class:`myokit.UserFunction` object.
         """
+        # Deprecated since 2026-11-11
+        import warnings
+        warnings.warn(
+            'The use of user-defined functions is deprecated and will be'
+            ' removed in future versions of Myokit.')
+
         name = check_name(name)
 
         # Check argument names and uniqueness

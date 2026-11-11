@@ -50,43 +50,47 @@ class ModelTest(unittest.TestCase):
         x = c.add_variable('x')
 
         # Test basics
-        m.add_function('f', ('a', 'b', 'c'), 'a + b + c')
+        with WarningCollector() as w:
+            m.add_function('f', ('a', 'b', 'c'), 'a + b + c')
+        self.assertIn('use of user-defined functions is deprecated', w.text())
         x.set_rhs('f(1, 2, 3)')
         self.assertEqual(x.eval(), 6)
 
         # Test duplicate name
         # Different number of arguments is allowed:
-        m.add_function('f', ('a', 'b'), 'a + b')
-        self.assertRaisesRegex(
-            myokit.DuplicateFunctionName, 'already defined', m.add_function,
-            'f', ('a', 'b'), 'a - b')
+        with WarningCollector():
+            m.add_function('f', ('a', 'b'), 'a + b')
+            self.assertRaisesRegex(
+                myokit.DuplicateFunctionName, 'already defined', m.add_function,
+                'f', ('a', 'b'), 'a - b')
 
-        # Test duplicate argument name
-        self.assertRaisesRegex(
-            myokit.DuplicateFunctionArgument, 'already in use',
-            m.add_function, 'g', ('a', 'a'), 'a + a')
+            # Test duplicate argument name
+            self.assertRaisesRegex(
+                myokit.DuplicateFunctionArgument, 'already in use',
+                m.add_function, 'g', ('a', 'a'), 'a + a')
 
-        # Dot operator is not allowed, nor are init or partial
-        self.assertRaisesRegex(
-            myokit.InvalidFunction, r'dot\(\) operator',
-            m.add_function, 'fdot', ('a', ), 'dot(a)')
-        a = myokit.Name('a')
-        self.assertRaisesRegex(
-            myokit.InvalidFunction, r'partial\(\) operator',
-            m.add_function, 'fpart', ('a', ), myokit.PartialDerivative(a, a))
-        self.assertRaisesRegex(
-            myokit.InvalidFunction, r'init\(\) operator',
-            m.add_function, 'finit', ('a', ), myokit.InitialValue(a))
+            # Dot operator is not allowed, nor are init or partial
+            self.assertRaisesRegex(
+                myokit.InvalidFunction, r'dot\(\) operator',
+                m.add_function, 'fdot', ('a', ), 'dot(a)')
+            a = myokit.Name('a')
+            self.assertRaisesRegex(
+                myokit.InvalidFunction, r'partial\(\) operator',
+                m.add_function, 'fpart', ('a', ),
+                myokit.PartialDerivative(a, a))
+            self.assertRaisesRegex(
+                myokit.InvalidFunction, r'init\(\) operator',
+                m.add_function, 'finit', ('a', ), myokit.InitialValue(a))
 
-        # Unused argument
-        self.assertRaisesRegex(
-            myokit.InvalidFunction, 'never used', m.add_function, 'fun',
-            ('a', 'b'), 'a')
+            # Unused argument
+            self.assertRaisesRegex(
+                myokit.InvalidFunction, 'never used', m.add_function, 'fun',
+                ('a', 'b'), 'a')
 
-        # Unspecified variable
-        self.assertRaisesRegex(
-            myokit.InvalidFunction, 'never declared',
-            m.add_function, 'fun', ('a', ), 'a + b')
+            # Unspecified variable
+            self.assertRaisesRegex(
+                myokit.InvalidFunction, 'never declared',
+                m.add_function, 'fun', ('a', ), 'a + b')
 
     def test_add_variable_extended(self):
         # Extended add_variable syntax

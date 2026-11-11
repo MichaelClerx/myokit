@@ -13,7 +13,7 @@ import unittest
 
 import myokit
 import myokit.units
-from myokit.tests import DIR_DATA
+from myokit.tests import DIR_DATA, WarningCollector
 
 
 class TokenizerTest(unittest.TestCase):
@@ -359,7 +359,9 @@ class PhasedParseTest(unittest.TestCase):
             't = 0 bind time',
             'x = michael(12)',
         )
-        p(code)
+        with WarningCollector() as w:
+            p(code)
+        self.assertIn('use of user-defined functions is deprecated', w.text())
 
         code = (
             '[[model]]',
@@ -368,7 +370,8 @@ class PhasedParseTest(unittest.TestCase):
             't = 0 bind time',
             'x = michael(1,2,3)',
         )
-        p(code)
+        with WarningCollector():
+            p(code)
 
         # Duplicate name
         code = (
@@ -379,8 +382,9 @@ class PhasedParseTest(unittest.TestCase):
             't = 0 bind time',
             'x = michael(1,2,3)',
         )
-        self.assertRaisesRegex(
-            myokit.ParseError, 'already defined', p, code)
+        with WarningCollector():
+            self.assertRaisesRegex(
+                myokit.ParseError, 'already defined', p, code)
 
     def test_block_comments(self):
         # Test block comments in model.
@@ -1778,8 +1782,8 @@ class ModelParseTest(unittest.TestCase):
             x = sin(8, 2)
             """
         self.assertRaisesRegex(
-            myokit.ParseError, 'Wrong number of arguments', myokit.parse_model,
-            m)
+            myokit.ParseError, 'Wrong number of arguments',
+            myokit.parse_model, m)
 
 
 if __name__ == '__main__':
