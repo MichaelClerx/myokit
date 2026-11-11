@@ -2909,9 +2909,14 @@ class Model(ObjectWithMetaData, VarProvider):
         if isinstance(values, (str, dict)):
             self._state_init = [
                 myokit.Number(x) for x in self.map_to_state(values)]
+            self._valid = None
+            # This should not make a model invalid, but may create new unused
+            # variables to warn about.
+
         elif len(values) != len(self._state_vars):
             raise ValueError('Wrong number of initial values, expecting'
                              f' {len(self._state_vars)}.')
+
         else:
             # Parsing of arguments without making changes, in case it fails.
             expr = []
@@ -3417,14 +3422,19 @@ class Model(ObjectWithMetaData, VarProvider):
         """
         Validates this model and raises errors if any issues are found.
 
-        Small issues (e.g. unused variables) will generate warnings, which
-        can be retrieved using :meth:`Model.warnings()` or
+        If ``remove_unused_variables`` is set to ``True``, any unused variables
+        will be removed from this model during validation. If set to the
+        default value of ``False``, a model warning will be generated for each
+        unused variable, retrievable using :meth:`Model.warnings()` or
         :meth:`Model.format_warnings()`. Any previously set warnings will be
-        erased whenever `validate()` is run.
+        erased whenever :meth:`validate` is run.
 
-        If ``remove_unused_variables`` is set to True, any unused variables
-        will be removed from this model during validation.
+        Any other issues identified in validation will result in a
+        :class:`myokit.IntegrityError`.
         """
+        # Note: Issues that can not arise from API use will trigger an
+        # AssertionError.
+
         # Reset warnings
         self._warnings = []
 
@@ -3433,42 +3443,19 @@ class Model(ObjectWithMetaData, VarProvider):
         if time is None:
             self._valid = False
             raise myokit.MissingTimeVariableError()
-        if time.binding() != 'time':    # pragma: no cover
-            # Added cover pragma: This can only happen if there is a bug
-            # somewhere!
-            self._valid = False
-            raise myokit.IntegrityError(
-                'Invalid time variable set. Time variable must be bound to'
-                ' external value "time".')
+        assert time.binding() == 'time'
 
-        # Test initial value expresions
-        n = len(self._state_vars)
-        if n != len(self._state_init):   # pragma: no cover
-            # Cover pragma: This can only happen if there's an API bug
-            self._valid = False
-            raise myokit.IntegrityError(
-                'Initial values list must have same size as state variables'
-                ' list.')
+        # Check number of states and number of initial values
+        assert len(self._state_vars) == len(self._state_init)
+
+        # Check component mapping uses correct names
+        for n, c in self._components.items():
+            assert n == c.qname()
 
         # Validation of components, variables
         for c in self.components():
-            if c._parent != self:   # pragma: no cover
-                # Cover pragma: This can only happen if there's an API bug
-                msg = 'Component parent doesn\'t match with enclosing model <'
-                msg += c.name() + '>.'
-                self._valid = False
-                raise myokit.IntegrityError(msg)
-            # Deep validation
+            assert c._parent is self
             c.validate()
-
-        # Test component mapping
-        for n, c in self._components.items():
-            if n != c.qname():  # pragma: no cover
-                # Cover pragma: This can only happen if there's an API bug
-                self._valid = False
-                raise myokit.IntegrityError(
-                    'Component called <' + c.qname() + '> found at index <'
-                    + n + '>.')
 
         # Find cycles, warn of unused variables
         self._validate_solvability(remove_unused_variables)
@@ -3514,7 +3501,7 @@ class Model(ObjectWithMetaData, VarProvider):
                 trail.append(lhs)
                 for d in var.rhs().references():
                     v = d.var()
-                    if not v.is_state() and d.is_derivative:
+                    if not v.is_state() and d.is_derivative:  # TODO #1239
                         follow(d, v, trail, mark_used)
                 trail.pop()
                 if mark_used:
@@ -3812,23 +3799,11 @@ class Component(VarOwner):
         """
         Attempts to check component validity, raises errors if it isn't.
         """
-        m = self.model()
-        if m is None:   # pragma: no cover
-            # Cover pragma: Can only be reached through an API bug.
-            raise myokit.IntegrityError(
-                f'No model found in hierarchy for <{self.qname()}>.')
+        assert self.model() is not None
 
         # Validate child variables
         for v in self.variables():
-            if v._parent != self:   # pragma: no cover
-                # Cover pragma: Can only be reached through an API bug
-                raise myokit.IntegrityError(
-                    'Child variable\'s parent does not match with actual'
-                    f' parent: parent of <{v.qname()}> is set to '
-                    f' <{v._parent.qname()}>, but the variable is stored in'
-                    f' <{self.qname()}>.')
-
-            # Deep validation
+            assert v._parent is self
             v.validate()
 
 
@@ -4659,6 +4634,14 @@ class Variable(VarOwner):
             kid._delete(recursive=True, ignore_siblings=True)
             self._remove_variable_internal(kid)
 
+        # Reset validation
+        self.model()._reset_validation()
+        # Note: If the model was already valid, then nothing referred to the
+        # deleted child variables. However, the "unused variable" warnings
+        # would still need to be unset. Instead of hacking this in, we can
+        # safely assume this is such a rare scenario that a double validation
+        # is OK.
+
     def rename(self, new_name):
         """ Renames this variable. """
         assert self._parent is not None
@@ -4962,30 +4945,13 @@ class Variable(VarOwner):
         is_state = self._index is not None
         is_deriv = self.lhs().is_derivative()
         if is_state:
-            # Derivative is set
-            if not is_deriv:        # pragma: no cover
-                raise myokit.IntegrityError(
-                    f'Variable <{self.qname()}> is listed as a state variable'
-                    ' but its LHS is not a derivative.')
-
-            # Not nested
-            if self._is_nested:     # pragma: no cover
-                raise myokit.IntegrityError(
-                    f'State variables should not be nested: <{self.qname()}>.')
-
-            # Index matches model
+            # Sanity checks
             m = self.model()
-            if not m._state_vars[self._index] == self:  # pragma: no cover
-                raise myokit.IntegrityError(
-                    'State variable not listed in model state vector at'
-                    f' correct index: <{self.qname()}>.')
-
-            # Initial value is an expression
+            assert is_deriv             # Derivative is set
+            assert not self._is_nested  # Not nested
+            assert m._state_vars[self._index] == self  # Index matches model
             i = m._state_init[self._index]
-            if not isinstance(i, myokit.Expression):  # pragma: no cover
-                raise myokit.IntegrityError(
-                    f'Initial value for <{self.qname()}> is not an'
-                    ' expression.')
+            assert isinstance(i, myokit.Expression)
 
             # Init: No PartialDerivative or InitialValue operators
             if i.contains_type(myokit.PartialDerivative):
@@ -5013,16 +4979,11 @@ class Variable(VarOwner):
                         f'Initial value for variable <{self.qname()}> is not'
                         f' constant: {i.code()}.')
 
-        elif is_deriv:  # pragma: no cover
-            raise myokit.IntegrityError(
-                f'A derivative was set for <{self.qname()}> but this is not a'
-                ' state variable.')
+        else:
+            assert not is_deriv
 
-        # Check for component as parent
-        m = self.parent(Component)
-        if m is None:   # pragma: no cover
-            raise myokit.IntegrityError(
-                f'No component found in hierarchy for <{self.qname()}>.')
+        # Check for component in ancestors
+        assert self.parent(Component) is not None
 
         # Validate references
         for ref in self._refs_to.union(self._srefs_to):
@@ -5043,25 +5004,12 @@ class Variable(VarOwner):
                 continue
             raise myokit.IllegalReferenceError(ref, self)
 
-        # Check no-one thinks this is a state unless it really is.
-        if self._srefs_by and not is_state:  # pragma: no cover
-            # Cover pragma: Can only be reached through an API bug
-            refs = ', '.join([f'<{r.qname()}>' for r in self._srefs_by])
-            raise myokit.IntegrityError(
-                f'Variable <{self.qname()}> is not a state, but is referred to'
-                f' as a state by ({refs}).')
+        # Check no-one thinks this is a state unless it is.
+        assert not(self._srefs_by and not is_state)
 
         # Validate child variables
         for v in self.variables():
-            if v._parent != self:   # pragma: no cover
-                # Cover pragma: Can only be reached through an API bug
-                raise myokit.IntegrityError(
-                    'Child variable\'s parent does not match with actual'
-                    f' parent: parent of <{v.qname()}> is set to'
-                    f' <{v._parent.qname()}>, but the variable is stored in'
-                    f' <{self.qname()}>.')
-
-            # Deep validation
+            assert v._parent is self
             v.validate()
 
     def value(self):
