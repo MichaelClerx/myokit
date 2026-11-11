@@ -554,7 +554,7 @@ class ModelTest(unittest.TestCase):
 
         # Test with invalid state argument
         self.assertRaisesRegex(
-            ValueError, r'sequence of \(8\)', m.format_state, [1, 2, 3])
+            ValueError, r'sequence of 8', m.format_state, [1, 2, 3])
 
         # Test with precision argument
         state1 = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -586,7 +586,7 @@ class ModelTest(unittest.TestCase):
 
         # Test with invalid second state argument
         self.assertRaisesRegex(
-            ValueError, r'sequence of \(8\)', m.format_state,
+            ValueError, r'sequence of 8', m.format_state,
             [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3])
 
         # Test with model that has expressions in its initial state.
@@ -662,7 +662,7 @@ class ModelTest(unittest.TestCase):
 
         # Test with invalid state argument
         self.assertRaisesRegex(
-            ValueError, r'sequence of \(8\)',
+            ValueError, r'sequence of 8',
             m.format_state_derivatives, [1, 2, 3])
 
         # Test with state and precision argument
@@ -713,7 +713,7 @@ class ModelTest(unittest.TestCase):
 
         # Test with invalid derivs argument
         self.assertRaisesRegex(
-            ValueError, r'sequence of \(8\)', m.format_state_derivatives,
+            ValueError, r'sequence of 8', m.format_state_derivatives,
             [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3])
 
         # Test without expressions in the initial state (these will be
@@ -1147,19 +1147,19 @@ class ModelTest(unittest.TestCase):
 
         # new_name is not string or list of correct length
         self.assertRaisesRegex(
-            TypeError, 'new_name must be',
+            TypeError, '"new_name" must be',
             m1.import_component, m1['p'], new_name=1)
 
         self.assertRaisesRegex(
-            TypeError, 'new_name must be',
+            TypeError, '"new_name" must be',
             m1.import_component, [m1['p'], m1['q']], new_name='abs')
 
         self.assertRaisesRegex(
-            TypeError, 'new_name must be',
+            TypeError, '"new_name" must be',
             m1.import_component, [m1['p'], m1['q']], new_name=['abs', 1])
 
         self.assertRaisesRegex(
-            TypeError, 'new_name must be',
+            TypeError, '"new_name" must be',
             m1.import_component, [m1['p'], m1['q']], new_name=['abs'])
 
         # Multiple imported components must be all from the same model

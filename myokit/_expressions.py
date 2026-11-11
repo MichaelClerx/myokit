@@ -399,18 +399,17 @@ class Expression:
             try:
                 subst = dict(subst)
             except TypeError:
-                raise TypeError('Argument `subst` must be dict or None.')
+                raise TypeError('Argument "subst" must be dict or None.')
             for k, v in subst.items():
                 if not isinstance(k, myokit.LhsExpression):
                     raise ValueError(  # noqa: TRY004
-                        'All keys in `subst` must LhsExpression objects.')
+                        'All keys in "subst" must LhsExpression objects.')
                 if not isinstance(v, myokit.Expression):
                     try:
                         v = float(v)
                     except ValueError:
-                        raise ValueError(
-                            'All values in `subst` must be Expression objects'
-                            ' or numbers.')
+                        raise ValueError('All values in "subst" must be'
+                                         ' Expression objects or numbers.')
                     subst[k] = myokit.Number(v)
 
         # Evaluate
@@ -426,11 +425,10 @@ class Expression:
             if ops:
                 out.append('With the following operands:')
                 for i, op in enumerate(ops):
-                    pre = '  (' + str(1 + i) + ') '
                     try:
-                        out.append(pre + str(op._eval(subst, precision)))
+                        out.append(f'  ({1 + i}) {op._eval(subst, precision)}')
                     except EvalError:
-                        out.append(pre + 'another error')
+                        out.append(f'  ({1 + i}) another error')
 
             # Show variables included in expression
             refs = e.expr.references()
@@ -447,16 +445,16 @@ class Expression:
 
                     if isinstance(rhs, Number):
                         # Show numbers on same line
-                        pre = '  ' + name + ' = '
+                        pre = f'  {name}'
                     else:
                         # Show expressions + results on next line
-                        out.append('  ' + name + ' = ' + rhs.code())
-                        pre = '  ' + ' ' * len(name) + ' = '
+                        out.append(f'  {name} = {rhs.code()}')
+                        pre = '  ' + ' ' * len(name)
 
                     try:
-                        out.append(pre + str(rhs._eval(subst, precision)))
+                        out.append(f'{pre} = {rhs._eval(subst, precision)}')
                     except EvalError:
-                        out.append(pre + 'another error')
+                        out.append(f'{pre} = another error')
 
             # Raise new exception with better message
             out = '\n'.join(out)
@@ -668,8 +666,8 @@ class Expression:
 
         # Create function text
         args = [w.ex(x) for x in self._references]
-        c = ('def ex_pyfunc_generated(' + ','.join(sorted(args))
-             + '):\n    return ' + w.ex(self))
+        args = ', '.join(sorted(args))
+        c = f'def ex_pyfunc_generated({args}):\n    return {w.ex(self)}'
 
         # Create function
         local = {}
@@ -703,8 +701,8 @@ class Expression:
         raise NotImplementedError(
             'Individual myokit Expressions can not be pickled. Please try e.g.'
             ' pickling a full model, or pickling the output of'
-            ' `Expression.code()` and following unpickling with a call to'
-            ' `myokit.parse_expression(unpickled_code, context=a_model)` to'
+            ' "Expression.code()" and following unpickling with a call to'
+            ' "myokit.parse_expression(unpickled_code, context=a_model)" to'
             ' recreate the Expression.')
 
     def references(self):
@@ -715,7 +713,7 @@ class Expression:
         return set(self._references)
 
     def __repr__(self):
-        return 'myokit.Expression[' + self.code() + ']'
+        return f'myokit.Expression[{self.code()}]'
 
     def __str__(self):
         return self.code()
@@ -1044,7 +1042,7 @@ class Name(LhsExpression):
                 b.write(self._value.qname(c))
         elif isinstance(self._value, str):
             # Allow strings for debugging
-            b.write('str:' + str(self._value))
+            b.write(f'str:{self._value}')
         else:
             # Allow "misusing" the expression system by storing other types as
             # values.
@@ -1115,18 +1113,16 @@ class Name(LhsExpression):
     def _polishb(self, b):
         if isinstance(self._value, str):
             # Allow an exception for strings
-            b.write('str:')
-            b.write(self._value)
+            b.write(f'str:{self._value}')
         else:
             # Use object id here to make immutable references. This is fine
             # since references should always be to variable objects, and
             # variables are unique this way (one Variable('x') doesn't equal
             # another Variable('x')).
-            b.write('var:')
-            b.write(str(id(self._value)))
+            b.write(f'var:{id(self._value)}')
 
     def __repr__(self):
-        return '<Name(' + repr(self._value) + ')>'
+        return f'<Name({repr(self._value)})>'
 
     def rhs(self):
         """See :meth:`LhsExpression.rhs()`."""
@@ -1247,7 +1243,7 @@ class Derivative(LhsExpression):
         self._op._polishb(b)
 
     def __repr__(self):
-        return '<Derivative(' + repr(self._op) + ')>'
+        return f'<Derivative({repr(self._op)})>'
 
     def rhs(self):
         """See :meth:`LhsExpression.rhs()`."""
@@ -1256,7 +1252,7 @@ class Derivative(LhsExpression):
         return None
 
     def _tree_str(self, b, n):
-        b.write(' ' * n + 'dot(' + str(self._op._value) + ')\n')
+        b.write(' ' * n + f'dot({self._op._value})\n')
 
     def var(self):
         """See :meth:`LhsExpression.var()`."""
@@ -1359,8 +1355,7 @@ class PartialDerivative(LhsExpression):
         self._var2._polishb(b)
 
     def __repr__(self):
-        return ('<PartialDerivative(' + repr(self._var1) + ', '
-                + repr(self._var2) + ')>')
+        return f'<PartialDerivative({repr(self._var1)}, {repr(self._var2)})>'
 
     def rhs(self):
         """
@@ -1440,7 +1435,7 @@ class InitialValue(LhsExpression):
         self._var._polishb(b)
 
     def __repr__(self):
-        return '<InitialValue(' + repr(self._var) + ')>'
+        return f'<InitialValue({repr(self._var)})>'
 
     def rhs(self):
         """
@@ -1453,7 +1448,7 @@ class InitialValue(LhsExpression):
         return None
 
     def _tree_str(self, b, n):
-        b.write(' ' * n + 'init(' + str(self._var._value) + ')\n')
+        b.write(' ' * n + f'init({self._var._value})\n')
 
     def var(self):
         """See :meth:`LhsExpression.var()`."""
@@ -1703,9 +1698,8 @@ class Plus(NumericalInfixExpression):
         if unit2 is None:
             return unit1
 
-        raise EvalUnitError(
-            self, 'Addition requires equal units, got '
-            + unit1.clarify() + ' and ' + unit2.clarify() + '.')
+        raise EvalUnitError(self, 'Addition requires equal units, got'
+                            f' {unit1.clarify()} and {unit2.clarify()}.')
 
 
 class Minus(NumericalInfixExpression):
@@ -1752,9 +1746,8 @@ class Minus(NumericalInfixExpression):
         if unit2 is None:
             return unit1
 
-        raise EvalUnitError(
-            self, 'Subtraction requires equal units, got '
-            + unit1.clarify() + ' and ' + unit2.clarify() + '.')
+        raise EvalUnitError(self, 'Subtraction requires equal units, got'
+                            f' {unit1.clarify()} and {unit2.clarify()}.')
 
 
 class Multiply(NumericalInfixExpression):
@@ -2079,10 +2072,8 @@ class Power(NumericalInfixExpression):
 
         # In strict mode, check 2nd unit is dimensionless
         if unit2 != myokit.units.dimensionless and mode == myokit.UNIT_STRICT:
-            raise EvalUnitError(
-                self,
-                'Exponent in Power must be dimensionless, got '
-                + unit2.clarify() + '.')
+            raise EvalUnitError(self, 'Exponent in Power must be'
+                                f' dimensionless, got {unit2.clarify()}.')
 
         if unit1 is None:
             return None
@@ -2114,11 +2105,10 @@ class Function(Expression):
         super().__init__(ops)
         if self._nargs is not None:
             if len(ops) not in self._nargs:
+                exp = ' or '.join([str(x) for x in self._nargs])
                 raise myokit.IntegrityError(
                     f'Function ({self._fname}) created with wrong number of'
-                    ' arguments ({len(ops)}, expecting '
-                    + ' or '.join([str(x) for x in self._nargs]) + ').',
-                    self._token)
+                    f' arguments ({len(ops)}, expecting {exp}).', self._token)
 
     def bracket(self, op=None):
         """See :meth:`Expression.bracket()`."""
@@ -2191,8 +2181,8 @@ class UnaryNumericalDimensionlessFunction(UnaryNumericalFunction):
         # Check unit in strict mode
         if mode == myokit.UNIT_STRICT and unit != myokit.units.dimensionless:
             raise EvalUnitError(
-                self, 'Function ' + self._fname + '() requires a'
-                ' dimensionless operand, got ' + unit.clarify() + '.')
+                self, f'Function {self._fname}() requires a dimensionless'
+                f' operand, but got {unit.clarify()}.')
 
         # Unary dimensionless functions are always dimensionless
         return myokit.units.dimensionless
@@ -2533,9 +2523,8 @@ class Log(Function):
             if mode == myokit.UNIT_STRICT:
                 if unit != myokit.units.dimensionless:
                     raise EvalUnitError(
-                        self,
-                        'Log() requires a dimensionless operand, got '
-                        + unit.clarify() + '.')
+                        self, 'Function log() requires a dimensionless'
+                        f' operand, got {unit.clarify()}.')
 
         # Two operands
         else:
@@ -2550,9 +2539,8 @@ class Log(Function):
             if mode == myokit.UNIT_STRICT:
                 if not unit1 == unit2 == myokit.units.dimensionless:
                     raise EvalUnitError(
-                        self,
-                        'Log() requires dimensionless operands, got '
-                        + unit1.clarify() + ' and ' + unit2.clarify() + '.')
+                        self, 'Function log() requires dimensionless operands,'
+                        f' got {unit1.clarify()} and {unit2.clarify()}.')
 
         return myokit.units.dimensionless
 
@@ -3238,13 +3226,11 @@ class Or(InfixCondition):
         if not isinstance(left, myokit.Condition):
             raise myokit.TypeError(
                 'Invalid type for first operand: expected a condition but'
-                f' found a {type(left)}.',
-                self._token)
+                f' found a {type(left)}.', self._token)
         if not isinstance(right, myokit.Condition):
             raise myokit.TypeError(
                 'Invalid type for second operand: expected a condition but'
-                f' found a {type(right)}.',
-                self._token)
+                f' found a {type(right)}.', self._token)
 
     def _eval(self, subst, precision):
         try:
@@ -3342,13 +3328,13 @@ def _expr_error_message(owner, e):
     if isinstance(e, EvalUnitError):
         msg = 'Incompatible units'
         if e.expr._token is not None:
-            msg += ' on line ' + str(e.expr._token[2])
-        msg += ': ' + str(e.err)
+            msg += f' on line {e.expr._token[2]}'
+        msg += f': {e.err}'
         out.append(msg)
     else:
         out.append(str(e.err))
     out.append('Encountered when evaluating')
-    par_str = '  ' + owner.code()
+    par_str = f'  {owner.code()}'
     err_str = e.expr.code()
 
     # Attempt to locate Name containing error
@@ -3359,7 +3345,7 @@ def _expr_error_message(owner, e):
         out.append('Error located at:')
         for i, var in enumerate(trail):
             out.append('  ' * (1 + i) + str(var))
-        par_str = str(trail[-1]) + ' = ' + trail[-1].rhs().code()
+        par_str = f'{trail[-1]} = {trail[-1].rhs().code()}'
         out.append(par_str)
 
     # Indicate location of error
