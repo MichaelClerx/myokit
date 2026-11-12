@@ -1268,7 +1268,7 @@ class Derivative(LhsExpression):
 
     def is_derivative(self, var=None):
         """See :meth:`Expression.is_derivative()`."""
-        return (var is None) or (var == self._op._value)
+        return (var is None) or (var is self._op._value)
 
     def _polishb(self, b):
         b.write('dot ')

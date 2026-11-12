@@ -3476,12 +3476,13 @@ class Model(ObjectWithMetaData, VarProvider):
 
         The method used is straightforward:
 
-          1. All variables are marked as "unused".
-          2. For every unused derivative, the dependencies are followed
-             recursively, keeping track of the current trail.
+          1. All variables are marked as "unused", except states, bound
+             variables, and labelled variables.
+          2. For every variable marked used, the dependencies are followed
+             recursively, keeping track of the "trail" of previous variables.
           3. Visited variables are marked as used.
-          4. If a visited variable occurs in the current trail, a cyclical
-             dependency is found and an exception is raised.
+          4. If a visited variable occurs in the trail, a cyclical dependency
+             is detected and an exception is raised.
           5. When all state variables have been visited, any variables not
              marked as used are unused. A warning is generated for each unused
              variable. Bound and labelled variables are always counted as
@@ -3496,18 +3497,24 @@ class Model(ObjectWithMetaData, VarProvider):
 
         # Define "following" function
         def follow(lhs, var, trail, mark_used=True):
+
+            # Catch cycles
             if lhs in trail:
-                # Catch cycles
                 c = trail[trail.index(lhs):]
                 c.append(lhs)
                 raise myokit.CyclicalDependencyError(c)
+
+            # Follow unused variable
             if not var._used:
+                # Scan references
                 trail.append(lhs)
                 for d in var.rhs().references():
                     v = d.var()
-                    if not v.is_state() and d.is_derivative:  # TODO #1239
+                    # Follow, unless it's a state value or dot() expression
+                    if not v.is_state():
                         follow(d, v, trail, mark_used)
                 trail.pop()
+
                 if mark_used:
                     var._used = True
 
