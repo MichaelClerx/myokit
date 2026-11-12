@@ -151,17 +151,20 @@ class Expression:
         Returns True if this expression tree contains an expression of the
         given type.
         """
+        # Deprecated since 2026-11-11
+        warnings.warn(
+            'The method Expression.validate() is deprecated and will be'
+            ' removed in future versions of Myokit.')
+
         if isinstance(self, kind):
             return True
 
-        # We can avoid traversing if searching for LhsExpressions
-        if isinstance(kind, LhsExpression):
-            for op in self._references:
-                if isinstance(op, kind):
-                    return True
-            return False
-
-        for op in self:
+        # We can avoid a lot of traversing if searching for LhsExpressions
+        if issubclass(kind, LhsExpression) or False:
+            to_traverse = self._references - {self}
+        else:
+            to_traverse = self
+        for op in to_traverse:
             if op.contains_type(kind):
                 return True
         return False

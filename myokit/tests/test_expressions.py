@@ -84,22 +84,36 @@ class ExpressionTest(unittest.TestCase):
     def test_contains_type(self):
         # Test :meth:`Expression.contains_type`.
 
-        self.assertTrue(myokit.Name('x').contains_type(myokit.Name))
-        self.assertFalse(myokit.Name('x').contains_type(myokit.Number))
-        self.assertTrue(myokit.Number(4).contains_type(myokit.Number))
-        self.assertFalse(myokit.Number(4).contains_type(myokit.Name))
+        with WarningCollector() as w:
+            self.assertTrue(myokit.Name('x').contains_type(myokit.Name))
+        self.assertIn('deprecated', w.text())
 
-        e = myokit.parse_expression('x + 3')
-        self.assertTrue(e.contains_type(myokit.Name))
-        self.assertTrue(e.contains_type(myokit.Number))
-        self.assertTrue(e.contains_type(myokit.Plus))
-        self.assertFalse(e.contains_type(myokit.Minus))
+        with WarningCollector() as w:
+            self.assertFalse(myokit.Name('x').contains_type(myokit.Number))
+            self.assertTrue(myokit.Number(4).contains_type(myokit.Number))
+            self.assertFalse(myokit.Number(4).contains_type(myokit.Name))
 
-        e = myokit.parse_expression('x * (x * (x * (x * (x * (1 + 1)))))')
-        self.assertTrue(e.contains_type(myokit.Multiply))
-        self.assertTrue(e.contains_type(myokit.Plus))
-        self.assertTrue(e.contains_type(myokit.Number))
-        self.assertFalse(e.contains_type(myokit.Minus))
+            e = myokit.parse_expression('x + 3')
+            self.assertTrue(e.contains_type(myokit.Name))
+            self.assertTrue(e.contains_type(myokit.Number))
+            self.assertTrue(e.contains_type(myokit.Plus))
+            self.assertFalse(e.contains_type(myokit.Minus))
+
+            e = myokit.parse_expression('x * (x * (x * (x * (x * (1 + 1)))))')
+            self.assertTrue(e.contains_type(myokit.Multiply))
+            self.assertTrue(e.contains_type(myokit.Plus))
+            self.assertTrue(e.contains_type(myokit.Number))
+            self.assertFalse(e.contains_type(myokit.Minus))
+
+            e = myokit.parse_expression('3 + 2 * dot(x)')
+            self.assertTrue(e.contains_type(myokit.Derivative))
+
+            # This is wrong but documented and historic
+            self.assertFalse(e.contains_type(myokit.Name))
+
+            e = myokit.parse_expression('3 + 2 * x')
+            self.assertFalse(e.contains_type(myokit.Derivative))
+            self.assertTrue(e.contains_type(myokit.Name))
 
     def test_depends_on(self):
         # Tests Expression.depends_on()
