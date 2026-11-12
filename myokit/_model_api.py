@@ -3069,7 +3069,7 @@ class Model(ObjectWithMetaData, VarProvider):
     def solvable_order(self):
         """
         Returns all equations in a solvable order, trying to maintain a
-        component-by-component evaluation scheme.
+        component-by-component evaluation scheme::
 
           OrderedDict {
             'comp1' : EquationList([eq1, eq2, eq3, ...]),
