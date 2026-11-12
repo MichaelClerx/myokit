@@ -882,17 +882,30 @@ class VariableTest(unittest.TestCase):
         # Variables are allowed access all children of their ancestors
         m = myokit.Model()
         c = m.add_component('c')
-        p = c.add_variable('p')
-        p11 = p.add_variable('p11')
-        p12 = p.add_variable('p12')
-        p121 = p12.add_variable('p121')
+        c.add_variable('t', rhs=0, binding='time')
+        p = c.add_variable('p', rhs=1)
+        p11 = p.add_variable('p11', rhs=11)
+        p12 = p.add_variable('p12', rhs=12)
+        p121 = p12.add_variable('p121', rhs=121)
         p121.set_rhs('p + p11 + p12')
         p121.validate()
 
         # But not children of children of ancestors
-        p112 = p11.add_variable('p112')
+        p112 = p11.add_variable('p112', rhs=112)
         p121.set_rhs(p112.lhs())
         self.assertRaises(myokit.IllegalReferenceError, p121.validate)
+
+        # Or children of other models
+        m = myokit.Model()
+        c = m.add_component('c')
+        q = c.add_variable('q')
+        q.set_rhs(myokit.Name(p))
+        self.assertRaisesRegex(
+            myokit.IntegrityError, 'from a different model', q.validate)
+        q.set_rhs(0)
+        q.promote(myokit.Name(p))
+        self.assertRaisesRegex(
+            myokit.IntegrityError, 'from a different model', q.validate)
 
         # RHS cannot be a partial, init, or condition
         m = myokit.Model()
@@ -904,14 +917,15 @@ class VariableTest(unittest.TestCase):
         p.validate()
         p.set_rhs(myokit.PartialDerivative(p.lhs(), q.lhs()))
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'Partial derivatives', p.validate)
+            myokit.IntegrityError, 'reference to a PartialDerivative',
+            p.validate)
         p.promote(1)
         p.set_rhs(myokit.InitialValue(myokit.Name(p)))
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'Initial value', p.validate)
+            myokit.IntegrityError, 'reference to an InitialValue', p.validate)
         p.set_rhs('q == 3')
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'can not be a condition', p.validate)
+            myokit.IntegrityError, 'should not be a condition', p.validate)
         p.set_rhs(3)
         p.validate()
 
@@ -942,13 +956,14 @@ class VariableTest(unittest.TestCase):
         # Initial value cannot be a partial, init, or condition
         p.set_initial_value(myokit.PartialDerivative(p.lhs(), q.lhs()))
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'Partial derivatives', p.validate)
+            myokit.IntegrityError, 'reference to a PartialDerivative',
+            p.validate)
         p.set_initial_value(myokit.InitialValue(myokit.Name(p)))
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'Initial value', p.validate)
+            myokit.IntegrityError, 'reference to an InitialValue', p.validate)
         p.set_initial_value('c.q == 3')
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'can not be a condition', p.validate)
+            myokit.IntegrityError, 'should not be a condition', p.validate)
 
         # Initial value cycles are caught in validation, don't cause loops
         m = myokit.parse_model('''
