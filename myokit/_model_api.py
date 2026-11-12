@@ -3520,9 +3520,9 @@ class Model(ObjectWithMetaData, VarProvider):
 
         # Follow all state variables (unless already visited), all bound
         # variables and all labelled variables.
-        used = [x for x in self._state_vars]
-        used += [x for x in self._bindings.values()]
-        used += [x for x in self._labels.values()]
+        used = list(self._state_vars)
+        used += self._bindings.values()
+        used += self._labels.values()
 
         # Check for cycles
         # Despite its "slow" is-in check, using a list for this purpose is
