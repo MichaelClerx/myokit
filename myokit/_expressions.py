@@ -7,6 +7,7 @@
 #
 import io
 import math
+import warnings
 
 import numpy
 
@@ -46,25 +47,24 @@ class Expression:
 
         # Store operands
         self._operands = () if operands is None else operands
+
+        # Store references in full expression
+        self._references = set()
+
+        # Store time derivatives in full expression for later validation
+        self._time_derivatives = set()
+
+        # Check operands
         for op in self._operands:
             if not isinstance(op, Expression):
                 raise myokit.IntegrityError(
                     'Expression operands must be other Expression objects.'
                     f' Found: {type(op)}.', self._token)
 
-        # Store references
-        self._references = set()
-        for op in self._operands:
+            # Store all references
             self._references |= op._references
-
-        # Contains partial derivatives or initial values?
-        self._has_partials = False
-        self._has_initials = False
-        for op in self._operands:
-            if op._has_partials:
-                self._has_partials = True
-            if op._has_initials:
-                self._has_initials = True
+            # ... and in particular Derivative expressions
+            self._time_derivatives |= op._time_derivatives
 
         # Cached results:
         # Since expressions are immutable, the results of many methods can be
@@ -72,7 +72,6 @@ class Expression:
         # to way until a first request.
         self._cached_hash = None
         self._cached_polish = None
-        self._cached_validation = None
         self._cached_unit_tolerant = None
         self._cached_unit_strict = None
 
@@ -154,10 +153,14 @@ class Expression:
         """
         if isinstance(self, kind):
             return True
-        if kind == PartialDerivative:
-            return self._has_partials
-        if kind == InitialValue:
-            return self._has_initials
+
+        # We can avoid traversing if searching for LhsExpressions
+        if isinstance(kind, LhsExpression):
+            for op in self._references:
+                if isinstance(op, kind):
+                    return True
+            return False
+
         for op in self:
             if op.contains_type(kind):
                 return True
@@ -187,11 +190,9 @@ class Expression:
             done.add(ref)
             if ref == lhs:
                 return True
-            elif ref._has_partials or ref._has_initials:
-                # Partial derivatives and initial values have no rhs
-                continue
             elif not ref._proper:
-                # Values that are not variables count as independent
+                # References to non-variables, partials and initials are
+                # counted as independent here
                 continue
 
             var = ref.var()
@@ -200,6 +201,7 @@ class Expression:
                 continue
             else:
                 todo.update(var.rhs()._references - done)
+
         return False
 
     def depends_on_state(self, deep=False):
@@ -214,10 +216,7 @@ class Expression:
         """
         # Shallow check
         if not deep:
-            for lhs in self._references:
-                if lhs.is_state_value():
-                    return True
-            return False
+            return any(lhs.is_state_value() for lhs in self._references)
 
         # Determine if this variable has a (deep) dependency on a state
         todo = set(self._references)
@@ -229,15 +228,15 @@ class Expression:
             done.add(ref)
             if ref.is_state_value():
                 return True
-            elif ref._has_partials or ref._has_initials:
-                # Partial derivatives and initial values have no rhs
-                continue
             elif not ref._proper:
-                # Values that are not variables count as independent
+                # References to non-variables, partials and initials are
+                # counted as independent here
                 continue
+
             var = ref.var()
             if not var.is_bound():
                 todo.update(var.rhs()._references - done)
+
         return False
 
     def diff(self, lhs, independent_states=True):
@@ -731,36 +730,68 @@ class Expression:
         raise NotImplementedError
 
     def validate(self):
-        """
-        Validates operands, checks cycles without following references. Will
-        raise exceptions if errors are found.
-        """
-        return self._validate([])
+        """ Deprecated method: no longer does anything. """
+        # Deprecated since 2026-11-11
+        warnings.warn(
+            'The method Expression.validate() is deprecated and will be'
+            ' removed in future versions of Myokit.')
 
-    def _validate(self, trail):
+    def _validate_for_variable(self, var, is_init=False):
         """
-        The argument ``trail`` is used to check for cyclical refererences.
-        """
-        if self._cached_validation:
-            return
+        Validates this expression for use as the RHS or initial value of a
+        model variable.
 
-        # Check for cyclical dependency
-        if id(self) in trail:
+        It checks that:
+
+        1. The expression is not a conditional.
+        2. Any :class:`Derivative` objects in its tree refer to state
+           variables.
+        3. Any :class:`LhsExpressions` refer to myokit.Variable objects (not
+           e.g. CellML ones or strings).
+        4. There are no :class:`PartialDerivative` or :class:`InitialValue`
+           objects in the tree.
+
+        If any of these conditions is not met, a :class:`myokit.IntegrityError`
+        is raised, referring to this expression as a right-hand side expression
+        by default, or an initial expression if ``is_init`` is set to ``True``.
+
+        The method does not check for cycles within the expression, because
+        these cannot be made through the expression API. Checking if references
+        are to the same model is performed in the Variables as part of scope
+        checking.
+        """
+        # The expression does not evaluate to True or False
+        if isinstance(self, myokit.Condition):
+            me = 'initial value' if is_init else 'right-hand side'
             raise myokit.IntegrityError(
-                'Cyclical expression found', self._token)
-        trail2 = trail + [id(self)]
-        # It's okay to do this check with id's. Even if there are multiple
-        # objects that are equal, if they're cyclical you'll get back round to
-        # the same ones eventually. Doing this with the value requires hash()
-        # which requires code() which may not be safe to use before the
-        # expressions have been validated.
+                f'The {me} expression for <{var.qname()}> should not be a'
+                ' condition.')
 
-        # Check kids
-        for op in self:
-            op._validate(trail2)
+        # Any dot() operators refer to a state variable
+        for ex in self._time_derivatives:
+            me = 'initial value' if is_init else 'right-hand side'
+            if not ex._op._value.is_state():
+                raise myokit.IntegrityError(
+                    f'The {me} expression for <{var.qname()}> contains a'
+                    ' reference to the time-derivative of a non-state variable'
+                    f' <{ex.code()}>.')
 
-        # Cache validation status
-        self._cached_validation = True
+        # Any LhsExpressions are proper
+        for ex in self._references:
+            if not ex._proper:
+                me = 'initial value' if is_init else 'right-hand side'
+                if isinstance(ex, PartialDerivative):
+                    raise myokit.IntegrityError(
+                        f'The {me} expression for <{var.qname()}> contains a'
+                        f' reference to a PartialDerivative <{ex.code()}>.')
+                elif isinstance(ex, InitialValue):
+                    raise myokit.IntegrityError(
+                        f'The {me} expression for <{var.qname()}> contains a'
+                        f' reference to an InitialValue <{ex.code()}>.')
+                else:
+                    raise myokit.IntegrityError(
+                        f'The {me} expression for <{var.qname()}> contains a'
+                        f' reference to a non-variable <{ex.code()}>.')
 
     # This is a relatively slow operation. Do _not_ use in performance
     # sensitive parts of the expression system code.
@@ -770,7 +801,7 @@ class Expression:
 
         Example::
 
-            5 + (2 * sqrt(x))
+            5 + 2 * sqrt(x)
 
             1) Plus
             2) Number(5)
@@ -780,7 +811,7 @@ class Expression:
             6) Name(x)
 
         To return only expressions of certain types, pass in a sequence
-        ``allowed_typess``, containing all types desired in the output.
+        ``allowed_types``, containing all types desired in the output.
         """
         if allowed_types is None:
 
@@ -1005,6 +1036,10 @@ class Name(LhsExpression):
         super().__init__()
         self._value = value
         self._references = {self}
+
+        # Is this a "real" Name, or a different application of the expression
+        # system (e.g. strings for debugging, or CellML vars). Not the idea of
+        # improper names is not a publicised bit of the API.
         self._proper = isinstance(self._value, myokit.Variable)
 
     def bracket(self, op=None):
@@ -1136,17 +1171,8 @@ class Name(LhsExpression):
     def _tree_str(self, b, n):
         b.write(' ' * n + str(self._value) + '\n')
 
-    def _validate(self, trail):
-        super()._validate(trail)
-        # Check value: String is allowed at construction for debugging, but
-        # not here!
-        if not self._proper:
-            raise myokit.IntegrityError(
-                f'Name value "{repr(self._value)}" is not an instance of'
-                ' class myokit.Variable', self._token)
-
     def var(self):
-        """See :meth:`LhsExpression.var()`."""
+        """ See :meth:`LhsExpression.var()`. """
         return self._value
 
 
@@ -1168,8 +1194,11 @@ class Derivative(LhsExpression):
                 ' myokit.Derivative requires a myokit.Name as argument).',
                 self._token)
         self._op = op
+        self._references = {self}  # Do not include embedded Name
+        self._time_derivatives = {self}
+
+        # A "proper" derivative contains a name referring to a myokit.Variable
         self._proper = self._op._proper
-        self._references = {self}
 
     def bracket(self, op):
         """See :meth:`Expression.bracket()`."""
@@ -1255,17 +1284,8 @@ class Derivative(LhsExpression):
         b.write(' ' * n + f'dot({self._op._value})\n')
 
     def var(self):
-        """See :meth:`LhsExpression.var()`."""
+        """ See :meth:`LhsExpression.var()`. """
         return self._op._value
-
-    def _validate(self, trail):
-        super()._validate(trail)
-        # Check that value is a variable has already been performed by name
-        # Check if value is the name of a state variable
-        if not self._op._value.is_state():
-            raise myokit.IntegrityError(
-                'Derivatives can only be defined for state variables.',
-                self._token)
 
 
 class PartialDerivative(LhsExpression):
@@ -1298,7 +1318,9 @@ class PartialDerivative(LhsExpression):
         self._var1 = var1
         self._var2 = var2
         self._references = {self}
-        self._has_partials = True
+
+        # Here we use "proper" to mean "not a proper Name or Derivative"
+        self._proper = False
 
     def bracket(self, op=None):
         """See :meth:`Expression.bracket()`."""
@@ -1401,10 +1423,15 @@ class InitialValue(LhsExpression):
         if not isinstance(var, Name):
             raise myokit.TypeError('The argument to an initial value must be a'
                                    ' variable name.', self._token)
+        # To-do: Check if name references a state at some point?
+        # But see: https://github.com/myokit/myokit/issues/937
+        # And    : https://github.com/myokit/myokit/pull/1023
 
         self._var = var
         self._references = {self}
-        self._has_initials = True
+
+        # Here we use "proper" to mean "not a proper Name or Derivative"
+        self._proper = False
 
     def bracket(self, op=None):
         """See :meth:`Expression.bracket()`."""
@@ -1451,17 +1478,8 @@ class InitialValue(LhsExpression):
         b.write(' ' * n + f'init({self._var._value})\n')
 
     def var(self):
-        """See :meth:`LhsExpression.var()`."""
+        """ See :meth:`LhsExpression.var()`. """
         return self._var._value
-
-    def _validate(self, trail):
-        super()._validate(trail)
-        # Check if value is the name of a state variable
-        var = self._var._value
-        if not (isinstance(var, myokit.Variable) and var.is_state()):
-            raise myokit.IntegrityError(
-                'Initial values can only be defined for state variables.',
-                self._token)
 
 
 class PrefixExpression(Expression):

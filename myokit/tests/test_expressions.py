@@ -12,6 +12,7 @@ import unittest
 import numpy as np
 
 import myokit
+from myokit.tests import WarningCollector
 
 # Unit --> See test_units.py
 # Quantity --> See test_units.py
@@ -495,17 +496,12 @@ class ExpressionTest(unittest.TestCase):
         ]))
 
     def test_validation(self):
-        # Test :meth:`Expression.validate()`.
+        # Deprecated method
 
         e = myokit.parse_expression('5 + 2 * exp(3 / (1 + 2))')
-        e.validate()
-        self.assertIsNone(e.validate())
-
-        # Test cycles in expression tree are found (not via variables!)
-        p = myokit.Plus(myokit.Number(1), myokit.Number(1))
-        # Have to hack this in, since, properly used, expressions are immutable
-        p._operands = (myokit.Number(2), p)
-        self.assertRaisesRegex(myokit.IntegrityError, 'yclical', p.validate)
+        with WarningCollector() as w:
+            self.assertIsNone(e.validate())
+        self.assertIn('deprecated', w.text())
 
     def test_walk(self):
         # Test :meth:`Expression.walk().
@@ -812,11 +808,12 @@ class NameTest(unittest.TestCase):
         self.assertIsNone(a.rhs())
 
         # Test validation
-        x.validate()
-        y.validate()
-        z.validate()
+        x._validate_for_variable(xvar)
+        y._validate_for_variable(xvar)
+        z._validate_for_variable(xvar)
         a = myokit.Name('test')
-        self.assertRaises(myokit.IntegrityError, a.validate)
+        self.assertRaises(
+            myokit.IntegrityError, a._validate_for_variable, xvar)
 
         # Test var()
         self.assertEqual(x.var(), xvar)
@@ -1138,21 +1135,21 @@ class DerivativeTest(unittest.TestCase):
 
         m = myokit.Model()
         c = m.add_component('c')
-        x = c.add_variable('x')
-        x.set_rhs(3)
-        x.promote(0)
-        y = c.add_variable('y')
-        y.set_rhs(2)
+        x = c.add_variable('x', rhs=3, initial_value=0)
+        y = c.add_variable('y', rhs=2)
+        z = c.add_variable('z')
+        c.add_variable('t', rhs=0, binding='time')
 
-        # Derivative of state
-        d = myokit.Derivative(myokit.Name(x))
-        d.validate()
+        # Test validation through variable
+        z.set_rhs(myokit.Derivative(myokit.Name(x)))
+        z.validate()
 
         # Derivative of non-state: allowed during model building, but doesn't
-        # validate
-        d = myokit.Derivative(myokit.Name(y))
+        # validate for model use
+        z.set_rhs(myokit.Derivative(myokit.Name(y)))
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'only be defined for state', d.validate)
+            myokit.IntegrityError, 'time-derivative of a non-state',
+            z.validate)
 
         # Derivative of something other than a name: never allowed
         self.assertRaisesRegex(
@@ -1587,18 +1584,6 @@ class InitialValueTest(unittest.TestCase):
         V = myokit.Name(m.get('membrane.V'))
         i = myokit.InitialValue(V)
         self.assertEqual(i.var(), V.var())
-
-    def test_validate(self):
-        # Tests InitialValue validation
-
-        # Must be a state
-        m = pd_model
-        V = myokit.Name(m.get('membrane.V'))
-        C = myokit.Name(m.get('membrane.C'))
-        i = myokit.InitialValue(V)
-        i.validate()
-        i = myokit.InitialValue(C)
-        self.assertRaises(myokit.IntegrityError, i.validate)
 
 
 class PrefixPlusTest(unittest.TestCase):

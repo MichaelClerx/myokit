@@ -188,7 +188,7 @@ class ModelPart(ObjectWithMetaData):
     def is_ancestor(self, obj):
         """
         Returns ``True`` if this object is an ancestor of the given
-        :class:`ModelPart`` ``object``.
+        :class:`ModelPart` ``obj``.
         """
         return obj.has_ancestor(self)
 
@@ -202,13 +202,13 @@ class ModelPart(ObjectWithMetaData):
 
     def name(self):
         """
-        Returns this object's name.
+        Returns this :class:`ModelPart` object's name.
         """
         return self._name
 
     def parent(self, kind=None):
         """
-        Returns this object's parent.
+        Returns this :class:`ModelPart` object's parent.
 
         If the optional variable ``kind`` is set, the method will scan until an
         instance of the requested type is found.
@@ -363,10 +363,11 @@ class VarProvider:
 
     def _resolve(self, name):
         """
-        Resolves a local variable name to a variable. Raises an
-        :class:`UnresolvedReferenceError` if the name doesn't correspond to any
-        variable accessible from this :class:`VarProvider's <VarProvider>`
-        scope.
+        Resolves a local variable name to a variable.
+
+        Raises an :class:`UnresolvedReferenceError` if the name does not
+        correspond to any variable accessible from this
+        :class:`VarProvider's <VarProvider>` scope.
         """
         raise NotImplementedError
 
@@ -531,11 +532,13 @@ class VarOwner(ModelPart, VarProvider):
             n = len(name) + 1
             names = {
                 x.name() for x in self.variables() if x.name()[:n] == root}
+
             # Find unused variant
             for i in range(1, 2 + len(names)):
                 name = f'{root}{i}'
                 if name not in names:
                     break
+
             # Add
             return self.add_variable(name)
 
@@ -1271,7 +1274,8 @@ class Model(ObjectWithMetaData, VarProvider):
 
     def create_unique_names(self):
         """
-        Create a globally unique name for each Component and Variable.
+        Create a globally unique name for each :class:`Component` and
+        :class:`Variable`.
 
         Ideally, the global name equals the variable or component's basic name.
         If a name is disputed the following strategy will be used:
@@ -3064,8 +3068,8 @@ class Model(ObjectWithMetaData, VarProvider):
 
     def solvable_order(self):
         """
-        Returns all equations in a solvable order. The resulting output has the
-        following structure::
+        Returns all equations in a solvable order, trying to maintain a
+        component-by-component evaluation scheme.
 
           OrderedDict {
             'comp1' : EquationList([eq1, eq2, eq3, ...]),
@@ -3572,8 +3576,7 @@ class Model(ObjectWithMetaData, VarProvider):
                 if var[1] is None:  # pragma: no cover
                     raise Exception(var[2])
                 var = var[1]
-                out.append(
-                    f'Variable not found, assuming <{var.qname()}>.')
+                out.append(f'Variable not found, assuming <{var.qname()}>.')
             else:
                 var = var[0]
         if var.is_state():
@@ -4728,7 +4731,7 @@ class Variable(VarOwner):
             # Clear cache and cache of dependent variables
             self._reset_cache(bubble=True)
 
-            # Reset model validation
+            # Reset model validation (binding status affects solvability)
             model._reset_validation()
 
     def set_initial_value(self, value):
@@ -4914,34 +4917,15 @@ class Variable(VarOwner):
         """
         Attempts to check this variable's validity, raises errors if it isn't.
         """
-        #
+        model = self.model()
+
         # Validate rhs
-        #
         if self._rhs is None:
             raise myokit.MissingRhsError(self)
-        self._rhs.validate()
+        assert isinstance(self._rhs, myokit.Expression)
+        self._rhs._validate_for_variable(self, is_init=False)
 
-        # RHS: No PartialDerivative objects
-        if self._rhs.contains_type(myokit.PartialDerivative):
-            raise myokit.IntegrityError(
-                'Partial derivatives may not appear in expressions set as'
-                f' right-hand side of a variable: <{self.qname()}>.')
-
-        # RHS: No InitialValue objects
-        if self._rhs.contains_type(myokit.InitialValue):
-            raise myokit.IntegrityError(
-                'Initial value operators may not appear in expressions set as'
-                f' right-hand side of a variable: <{self.qname()}>.')
-
-        # RHS: Can't evaluate to True or False
-        if isinstance(self._rhs, myokit.Condition):
-            raise myokit.IntegrityError(
-                'The right-hand side expression for a variable can not be a'
-                f' condition: <{self.qname()}>.')
-
-        #
         # Check state variables
-        #
         is_state = self._index is not None
         is_deriv = self.lhs().is_derivative()
         if is_state:
@@ -4950,34 +4934,28 @@ class Variable(VarOwner):
             assert is_deriv             # Derivative is set
             assert not self._is_nested  # Not nested
             assert m._state_vars[self._index] == self  # Index matches model
+
+            # Validate initial value
             i = m._state_init[self._index]
             assert isinstance(i, myokit.Expression)
-
-            # Init: No PartialDerivative or InitialValue operators
-            if i.contains_type(myokit.PartialDerivative):
-                raise myokit.IntegrityError(
-                    'Partial derivatives may not appear in model expressions:'
-                    f' initial value for <{self.qname()}>.')
-            if i.contains_type(myokit.InitialValue):
-                raise myokit.IntegrityError(
-                    'Initial values may not appear in model expressions:'
-                    f' initial value for <{self.qname()}>.')
-
-            # Init: Can't evaluate to True or False
-            if isinstance(i, myokit.Condition):
-                raise myokit.IntegrityError(
-                    'The initial value for a variable can not be a condition:'
-                    f' <{self.qname()}>.')
+            i._validate_for_variable(self, is_init=True)
 
             # Init: No nested variables or non-constants
             for ref in i.references():
                 var = ref.var()
-                if var.is_nested():
+                if var._is_nested:
                     raise myokit.IllegalReferenceInInitialValueError(self, ref)
-                if not var.is_constant():
+                if not var._is_constant:
                     raise myokit.IntegrityError(
                         f'Initial value for variable <{self.qname()}> is not'
                         f' constant: {i.code()}.')
+
+                # And certainly no other models
+                if var.model() is not model:
+                    raise myokit.IntegrityError(
+                        f'Initial value for variable <{self.qname()}> contains'
+                        ' a reference to a variable from a different model:'
+                        f' {i.code()}.')
 
         else:
             assert not is_deriv
@@ -4985,32 +4963,37 @@ class Variable(VarOwner):
         # Check for component in ancestors
         assert self.parent(Component) is not None
 
-        # Validate references
-        for ref in self._refs_to.union(self._srefs_to):
+        # Validate references in this variable's RHS
+        for var in self._refs_to.union(self._srefs_to):
             # References can be made to:
             #  1. This variable's children or any of this variable's
             #     ancestor's children.
             #  2. Any component variable.
             # Quick checks first: sibling or direct child
-            if ref._parent == self._parent or ref._parent == self:
+            if var._parent == self._parent or var._parent == self:
                 continue
 
-            # Component variable?
-            if isinstance(ref._parent, Component):
-                continue
+            # Must be either
+            # 1. a component variable, or
+            # 2, the child of an ancestor of this variable
+            if not (isinstance(var._parent, Component) or
+                    var._parent.is_ancestor(self)):
+                raise myokit.IllegalReferenceError(var, self)
 
-            # Child of ancestor of this variable
-            if ref._parent.is_ancestor(self):
-                continue
-            raise myokit.IllegalReferenceError(ref, self)
+            # Must refer to same model
+            if var.model() is not model:
+                raise myokit.IntegrityError(
+                    f'Right-hand side expression for variable <{self.qname()}>'
+                    ' contains a reference to a variable from a different'
+                    f' model: <{var.lhs()}>.')
 
         # Check no-one thinks this is a state unless it is.
         assert not(self._srefs_by and not is_state)
 
         # Validate child variables
-        for v in self.variables():
-            assert v._parent is self
-            v.validate()
+        for var in self.variables():
+            assert var._parent is self
+            var.validate()
 
     def value(self):
         """

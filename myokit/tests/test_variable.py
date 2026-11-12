@@ -904,14 +904,15 @@ class VariableTest(unittest.TestCase):
         p.validate()
         p.set_rhs(myokit.PartialDerivative(p.lhs(), q.lhs()))
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'Partial derivatives', p.validate)
+            myokit.IntegrityError, 'reference to a PartialDerivative',
+            p.validate)
         p.promote(1)
         p.set_rhs(myokit.InitialValue(myokit.Name(p)))
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'Initial value', p.validate)
+            myokit.IntegrityError, 'reference to an InitialValue', p.validate)
         p.set_rhs('q == 3')
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'can not be a condition', p.validate)
+            myokit.IntegrityError, 'should not be a condition', p.validate)
         p.set_rhs(3)
         p.validate()
 
@@ -942,13 +943,14 @@ class VariableTest(unittest.TestCase):
         # Initial value cannot be a partial, init, or condition
         p.set_initial_value(myokit.PartialDerivative(p.lhs(), q.lhs()))
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'Partial derivatives', p.validate)
+            myokit.IntegrityError, 'reference to a PartialDerivative',
+            p.validate)
         p.set_initial_value(myokit.InitialValue(myokit.Name(p)))
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'Initial value', p.validate)
+            myokit.IntegrityError, 'reference to an InitialValue', p.validate)
         p.set_initial_value('c.q == 3')
         self.assertRaisesRegex(
-            myokit.IntegrityError, 'can not be a condition', p.validate)
+            myokit.IntegrityError, 'should not be a condition', p.validate)
 
         # Initial value cycles are caught in validation, don't cause loops
         m = myokit.parse_model('''
