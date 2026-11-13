@@ -2482,6 +2482,9 @@ class ModelTest(unittest.TestCase):
         b.set_initial_value('q.a')
         m.validate()
         self.assertEqual(len(m.warnings()), 0)
+        b.set_initial_value('1 + 2 / q.a')
+        m.validate()
+        self.assertEqual(len(m.warnings()), 0)
 
     def test_value(self):
         # Test :meth:`Model.value()`.

@@ -3536,7 +3536,7 @@ class Model(ObjectWithMetaData, VarProvider):
             # And follow all variables used in an initial value expression
             for ex in self._state_init:
                 for ref in ex.references():
-                    used.add(ex.var())
+                    used.add(ref.var())
 
             # Check for cycles
             for var in used:
