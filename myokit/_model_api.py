@@ -2715,7 +2715,7 @@ class Model(ObjectWithMetaData, VarProvider):
             v = self.get(v)
             if not v.is_state():
                 raise ValueError(
-                    'The entries of ``order`` must all be state variables or'
+                    'The entries of "order" must all be state variables or'
                     ' state variable qnames.')
             if v in state:
                 raise ValueError(
@@ -3528,10 +3528,15 @@ class Model(ObjectWithMetaData, VarProvider):
                         var._used = True
 
             # Follow all state variables (unless already visited), all bound
-            # variables and all labelled variables.
-            used = list(self._state_vars)
-            used += self._bindings.values()
-            used += self._labels.values()
+            # variables, all labelled variables.
+            used = set(self._state_vars)
+            used.update(self._bindings.values())
+            used.update(self._labels.values())
+
+            # And follow all variables used in an initial value expression
+            for ex in self._state_init:
+                for ref in ex.references():
+                    used.add(ex.var())
 
             # Check for cycles
             for var in used:
@@ -4438,8 +4443,8 @@ class Variable(VarOwner):
 
         The new ``initial_value`` should be:
 
-        1. A numerical value.
-        2. A :class:`myokit.Expression`.
+        1. A numerical value, or
+        2. A :class:`myokit.Expression`, or
         3. A string which can be parsed to a :class:`myokit.Expression`. Any
            references to variables must be made using their fully qualified
            names.
