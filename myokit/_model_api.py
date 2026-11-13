@@ -4940,6 +4940,7 @@ class Variable(VarOwner):
         are in scope, (only) states define initial values, and more.
 
         The checks include:
+
         - A right-hand side (RHS) expression has been set, and is appropriate
           for a model variable (no partial derivatives etc.)
         - States have defined appropriate initial values
