@@ -12,6 +12,7 @@ This page lists the main changes made to Myokit in each release.
   - [#1246](https://github.com/myokit/myokit/pull/1246) The method `Expression.contains_type()` is deprecated. 
 - Removed
 - Fixed
+  - [#1250](https://github.com/myokit/myokit/pull/1250) Variables used by initial expressions are now marked as "used".
 
 ## [1.40.0] - 2026-11-02
 - Added
