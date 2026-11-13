@@ -2383,7 +2383,7 @@ class Model(ObjectWithMetaData, VarProvider):
         ``dep3`` are the :class:`LhsExpression` objects it depends upon.
 
         If the system is not solvable: that is, if it contains cyclical
-        references, a :class:`myokit.IntegrityError` is raised.
+        references, a :class:`myokit.CyclicalDependencyError` is raised.
 
         If the optional parameter ``collapse`` is set to ``True``
         nested variables will not be listed separatly. Instead, their
@@ -3424,7 +3424,9 @@ class Model(ObjectWithMetaData, VarProvider):
 
     def validate(self, remove_unused_variables=False):
         """
-        Validates this model and raises errors if any issues are found.
+        Validates this model, including validation of all components and
+        variables, testing solvability, and ensuring a time variable is
+        present.
 
         If ``remove_unused_variables`` is set to ``True``, any unused variables
         will be removed from this model during validation. If set to the
@@ -3491,77 +3493,83 @@ class Model(ObjectWithMetaData, VarProvider):
         If the optional argument ``remove_unused_variables`` is set to true,
         any unused variables will be removed from the model.
         """
-        # Mark all variables as unused
-        for var in self.variables(deep=True):
-            var._used = False
+        # Traverse the model structure only once
+        all_vars = list(self.variables(deep=True))
 
-        # Define "following" function
-        def follow(lhs, var, trail, mark_used=True):
+        try:
+            # Mark all variables as unused
+            for var in all_vars:
+                var._used = False
 
-            # Catch cycles
-            if lhs in trail:
-                c = trail[trail.index(lhs):]
-                c.append(lhs)
-                raise myokit.CyclicalDependencyError(c)
+            # Define "following" function
+            def follow(lhs, var, trail, mark_used=True):
 
-            # Follow unused variable
-            if not var._used:
-                # Scan references
-                trail.append(lhs)
-                for d in var.rhs().references():
-                    v = d.var()
-                    # Follow, unless it's a state value or dot() expression
-                    if not v.is_state():
-                        follow(d, v, trail, mark_used)
-                trail.pop()
+                # Catch cycles
+                if lhs in trail:
+                    c = list(trail)
+                    c = c[c.index(lhs):]
+                    c.append(lhs)
+                    raise myokit.CyclicalDependencyError(c)
 
-                if mark_used:
-                    var._used = True
+                # Follow unused variable (this goes by `var._used`, not
+                # presence in the `used` list, so all states etc. are still
+                # investigated.
+                if not var._used:
+                    # Scan references
+                    trail[lhs] = None
+                    for d in var.rhs().references():
+                        v = d.var()
+                        # Follow, unless it's a state value or dot() expression
+                        if not v.is_state():
+                            follow(d, v, trail, mark_used)
+                    trail.popitem()
 
-        # Follow all state variables (unless already visited), all bound
-        # variables and all labelled variables.
-        used = list(self._state_vars)
-        used += self._bindings.values()
-        used += self._labels.values()
+                    if mark_used:
+                        var._used = True
 
-        # Check for cycles
-        # Despite its "slow" is-in check, using a list for this purpose is
-        # faster than using an OrderedDict. Tested this. It's probably because
-        # the trail is usually quite short and hashing is slow.
-        for var in used:
-            follow(var.lhs(), var, [])
+            # Follow all state variables (unless already visited), all bound
+            # variables and all labelled variables.
+            used = list(self._state_vars)
+            used += self._bindings.values()
+            used += self._labels.values()
 
-        # Check for unused variables
-        to_remove = []
-        for var in self.variables(deep=True):
-            if not var._used:
-                # Everything else counts as unused
-                if remove_unused_variables:
-                    # Option 1, delete unused variables.
-                    to_remove.append(var)
-                else:
-                    # Option 2, warn about it.
-                    self._warn(myokit.UnusedVariableError(var))
-                    # In this case, the unused variables should also be checked
-                    # for cyclical references!
-                    follow(var.lhs(), var, [], False)
+            # Check for cycles
+            for var in used:
+                follow(var.lhs(), var, {})
 
-        # Remove unused variables (if enabled)
-        for var in to_remove:
-            # Unused variables may still depend on each other
-            var.set_rhs(0)
-        for var in to_remove:
-            self._warn(f'Removing unused variable: <{var.qname()}>.')
-            # If a nested set of variables is in to_remove, the parent may be
-            # deleted before the kids, which will trigger a delete of the kids.
-            # To avoid trying to delete things twice, check if the parent still
-            # exists.
-            if var._parent:
-                var._parent.remove_variable(var, recursive=True)
+            # Check for unused variables
+            to_remove = []
+            for var in all_vars:
+                if not var._used:
+                    # Everything else counts as unused
+                    if remove_unused_variables:
+                        # Option 1, delete unused variables.
+                        to_remove.append(var)
+                    else:
+                        # Option 2, warn about it.
+                        self._warn(myokit.UnusedVariableError(var))
+                        # In this case, the unused variables should also be
+                        # checked for cyclical references!
+                        follow(var.lhs(), var, {}, False)
+
+            # Remove unused variables (if enabled)
+            for var in to_remove:
+                # Unused variables may still depend on each other
+                var.set_rhs(0)
+            for var in to_remove:
+                self._warn(f'Removing unused variable: <{var.qname()}>.')
+
+                # If a nested set of variables is in to_remove, the parent may
+                # be deleted before the kids, which will trigger a delete of
+                # the kids. To avoid trying to delete things twice, check if
+                # the parent still exists.
+                if var._parent:
+                    var._parent.remove_variable(var, recursive=True)
 
         # Remove _used attributes
-        for var in self.variables(deep=True):
-            del (var._used)
+        finally:
+            for var in all_vars:
+                del var._used
 
     def value(self, qname):
         """
@@ -3807,7 +3815,8 @@ class Component(VarOwner):
 
     def validate(self):
         """
-        Attempts to check component validity, raises errors if it isn't.
+        Calls :meth:`Variable.validate()` on all variables in this
+        :class:`Component`.
         """
         assert self.model() is not None
 
@@ -3872,9 +3881,9 @@ class Variable(VarOwner):
         # variables are stored separately. Bound variables are treated as if
         # they were unbound.
         self._refs_by = set()   # Vars that refer to my LHS
-        self._srefs_by = set()  # Vars that refer to my current state value
+        self._srefs_by = set()  # Vars that refer to my state value
         self._refs_to = set()   # Vars whos LHS I refer to
-        self._srefs_to = set()  # Vars who current state value I refer to
+        self._srefs_to = set()  # Vars whos state value I refer to
 
         # Left-hand side representation (name or dot)
         self._lhs = myokit.Name(self)
@@ -4922,6 +4931,17 @@ class Variable(VarOwner):
 
     def validate(self):
         """
+        Validates this variable, including checking that referenced variables
+        are in scope, (only) states define initial values, and more.
+
+        The checks include:
+        - A right-hand side (RHS) expression has been set, and is appropriate
+          for a model variable (no partial derivatives etc.)
+        - States have defined appropriate initial values
+        - All variables referenced in the RHS or initial value are within
+          scope (including being from the same model)
+        - Validation of any child variables.
+
         Attempts to check this variable's validity, raises errors if it isn't.
         """
         model = self.model()
@@ -4966,16 +4986,18 @@ class Variable(VarOwner):
 
         else:
             assert not is_deriv
+            assert not self._srefs_by
 
         # Check for component in ancestors
         assert self.parent(Component) is not None
 
-        # Validate references in this variable's RHS
+        # Check scope of references
         for var in self._refs_to.union(self._srefs_to):
             # References can be made to:
             #  1. This variable's children or any of this variable's
             #     ancestor's children.
             #  2. Any component variable.
+
             # Quick checks first: sibling or direct child
             if var._parent == self._parent or var._parent == self:
                 continue
@@ -4993,9 +5015,6 @@ class Variable(VarOwner):
                     f'Right-hand side expression for variable <{self.qname()}>'
                     ' contains a reference to a variable from a different'
                     f' model: <{var.lhs()}>.')
-
-        # Check no-one thinks this is a state unless it is.
-        assert not(self._srefs_by and not is_state)
 
         # Validate child variables
         for var in self.variables():

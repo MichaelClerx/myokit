@@ -79,8 +79,8 @@ class CyclicalDependencyError(IntegrityError):
     """
     def __init__(self, cycle):
         # Set message
-        msg = 'Cyclical reference found: (' + ' > '.join(
-            [v.var().qname() for v in cycle]) + ').'
+        msg = ' > '.join([v.var().qname() for v in cycle])
+        msg = f'Cyclical reference found: ({msg}).'
         # Set token: First item in cycle is model's defining lhs
         tok = cycle[0].var()._token
         # Raise
