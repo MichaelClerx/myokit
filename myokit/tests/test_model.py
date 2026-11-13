@@ -2385,11 +2385,13 @@ class ModelTest(unittest.TestCase):
         c1_a.promote(1.0)
         c1_a.set_rhs(myokit.Multiply(myokit.Name(c1_a), myokit.Number(0.5)))
         c1_b.set_rhs(myokit.Multiply(myokit.Name(c1_a), myokit.Number(1.0)))
+
         # b is unused, test if found
         m.validate()
         w = m.warnings()
         self.assertEqual(len(w), 1)
         self.assertEqual(type(w[0]), myokit.UnusedVariableError)
+
         # b is used by c, c is unused, test if found
         c1_c = c1.add_variable('c')
         c1_c.set_rhs(myokit.Name(c1_b))
@@ -2398,20 +2400,37 @@ class ModelTest(unittest.TestCase):
         self.assertEqual(len(w), 2)
         self.assertEqual(type(w[0]), myokit.UnusedVariableError)
         self.assertEqual(type(w[1]), myokit.UnusedVariableError)
+
         # Test 1:1 cycle
         c1_b.set_rhs(myokit.Name(c1_b))
         self.assertRaises(myokit.CyclicalDependencyError, m.validate)
+        try:
+            m.validate()
+        except myokit.CyclicalDependencyError as e:
+            self.assertIn('c1.b > c1.b', str(e))
+
         # Test longer cycles
         c1_b.set_rhs(myokit.Multiply(myokit.Number(10), myokit.Name(c1_c)))
         self.assertRaises(myokit.CyclicalDependencyError, m.validate)
+        try:
+            m.validate()
+        except myokit.CyclicalDependencyError as e:
+            self.assertIn('c1.b > c1.c > c1.b', str(e))
+
         # Reset
         c1_b.set_rhs(myokit.Multiply(myokit.Name(c1_a), myokit.Number(1.0)))
         m.validate()
+
         # Test cycle involving state variable
         c1_a.set_rhs(myokit.Name(c1_b))
         m.validate()
         c1_b.set_rhs(myokit.Multiply(myokit.Name(c1_a), myokit.Name(c1_b)))
         self.assertRaises(myokit.CyclicalDependencyError, m.validate)
+        try:
+            m.validate()
+        except myokit.CyclicalDependencyError as e:
+            self.assertIn('c1.b > c1.b', str(e))
+
         c1_b.set_rhs(myokit.Multiply(myokit.Name(c1_a), myokit.Name(c1_c)))
         c1_c.set_rhs(myokit.Multiply(myokit.Name(c1_a), myokit.Number(3)))
         m.validate()
@@ -2419,6 +2438,10 @@ class ModelTest(unittest.TestCase):
         self.assertEqual(len(w), 0)
         c1_c.set_rhs(myokit.Multiply(myokit.Name(c1_a), myokit.Name(c1_b)))
         self.assertRaises(myokit.CyclicalDependencyError, m.validate)
+        try:
+            m.validate()
+        except myokit.CyclicalDependencyError as e:
+            self.assertIn('c1.b > c1.c > c1.b', str(e))
 
     def test_validate_and_remove_unused_variables(self):
         # Test :class:`Model.validate` with ``remove_unused_variables=True``.
@@ -2447,6 +2470,18 @@ class ModelTest(unittest.TestCase):
         self.assertEqual(len(m.warnings()), 2)  # 2 removal warnings
         m.validate()
         self.assertEqual(len(m.warnings()), 0)  # issue fixed!
+
+        # Check that initial values are followed up
+        m = myokit.Model()
+        q = m.add_component('q')
+        q.add_variable('time', rhs=0, binding='time')
+        q.add_variable('a', rhs=2)
+        b = q.add_variable('b', rhs=3, initial_value='0')
+        m.validate()
+        self.assertEqual(len(m.warnings()), 1)
+        b.set_initial_value('q.a')
+        m.validate()
+        self.assertEqual(len(m.warnings()), 0)
 
     def test_value(self):
         # Test :meth:`Model.value()`.
